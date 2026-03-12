@@ -32,6 +32,8 @@ export const READ_ONLY_TOOLS: ToolName[] = [
   "grep",
   "findFiles",
   "fileExists",
+  "wc",
+  "referencedBy",
   "gitStatus",
   "gitDiff",
   "gitLog",
@@ -50,6 +52,8 @@ const TOOLS: Record<string, { params: string }> = {
   grep: { params: "path?: string (dir or file), pattern: string (regex), caseInsensitive?: boolean, maxMatches?: number" },
   findFiles: { params: "path?: string (dir), namePattern: string (e.g. \"*.ts\", \"*.test.ts\")" },
   fileExists: { params: "path: string (relative path)" },
+  wc: { params: "path: string (file path; returns lines, words, bytes)" },
+  referencedBy: { params: "path: string (file path; returns which files reference it, e.g. imports)" },
   runCommand: { params: "command: string" },
   gitStatus: { params: "none" },
   gitDiff: { params: "path?: string, staged?: boolean" },
@@ -136,6 +140,8 @@ function parsePlannedAction(
       "grep",
       "findFiles",
       "fileExists",
+      "wc",
+      "referencedBy",
       "runCommand",
       "gitStatus",
       "gitDiff",
@@ -215,6 +221,8 @@ function parsePlannedAction(
         typeof paramsObj.namePattern === "string" ? paramsObj.namePattern : "*";
       break;
     case "fileExists":
+    case "wc":
+    case "referencedBy":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : "";
       break;
@@ -270,6 +278,8 @@ export async function planNextAction(
         "grep",
         "findFiles",
         "fileExists",
+        "wc",
+        "referencedBy",
         "runCommand",
         "gitStatus",
         "gitDiff",

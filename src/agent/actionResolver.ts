@@ -10,6 +10,8 @@ import {
   grepTool,
   findFilesTool,
   fileExistsTool,
+  wcTool,
+  referencedByTool,
 } from "../tools/fileTools.js";
 import { runCommandTool } from "../tools/commandTools.js";
 import {
@@ -126,6 +128,14 @@ export async function executeTool(
     case "fileExists": {
       const { path } = params as { path: string };
       return fileExistsTool(path);
+    }
+    case "wc": {
+      const { path } = params as { path: string };
+      return wcTool(path);
+    }
+    case "referencedBy": {
+      const { path } = params as { path: string };
+      return referencedByTool(path);
     }
     case "runCommand": {
       const { command } = params as { command: string };

@@ -27,6 +27,8 @@ Search: Use searchSymbols when the task is about finding a specific function, cl
 
 Edits: When you know the exact line number(s) to change (e.g. from search results that include startLine), use editLines with path and edits: [{ line, content, mode: "replace"|"insert" }] instead of readFile then writeFile—faster and less token usage.
 
+Organizing / cleanup: When the user asks to organize the project, clean up the codebase, remove useless files, or improve structure (any wording): (1) listFiles to see the layout, then moveFile only for misplaced files (e.g. source files at root → src/). (2) Remove useless files: use wc (path) to spot stubs (very few lines/bytes) and referencedBy (path) to spot orphans (no other file references it); deleteFile only when clearly redundant—never delete the main entry point or referenced files. Do not rename or move the main entry (e.g. index.ts); do not create redundant or nearly empty files or invent renames. Once layout is correct and useless files are removed, reply DONE. Use wc and referencedBy when in doubt; do not read every file.
+
 Code format: When using writeFile or editLines, always output properly indented code. Use multiple lines and correct indentation (e.g. 2 or 4 spaces per level). Never minify or put code on a single line.
 
 Goal types:
@@ -40,6 +42,7 @@ Avoid:
 - Paths are relative to the workspace root only. You cannot delete or read files outside it (e.g. ../ is invalid). If you got "Path escapes workspace", do not retry with a similar path.
 - git commit does not "remove" untracked files; it records staged changes. To remove a file from disk use deleteFile with a path inside the workspace.
 - If runLint, runTests, or runBuild returned "Missing script", that script is not in the project; do not call that tool again.
+- When organizing: do not move or rename src/index.ts (or the main entry); do not create redundant files (e.g. game.ts) or rename entry points.
 
 Available tools and their params (respond with JSON only):
 ${toolsList}
@@ -47,6 +50,7 @@ ${toolsList}
 Respond with exactly one JSON object, no other text. Examples:
 {"tool":"searchCode","params":{"query":"where is the main entry point"}}
 {"tool":"listFiles","params":{"path":"."}}
+{"tool":"moveFile","params":{"from":"pendu.ts","to":"src/pendu.ts"}}
 {"tool":"readFile","params":{"path":"src/index.ts"}}
 {"tool":"DONE","params":{}}
 `;

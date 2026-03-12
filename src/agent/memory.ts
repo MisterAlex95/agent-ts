@@ -11,6 +11,8 @@ export type ToolName =
   | "grep"
   | "findFiles"
   | "fileExists"
+  | "wc"
+  | "referencedBy"
   | "runCommand"
   | "gitStatus"
   | "gitDiff"

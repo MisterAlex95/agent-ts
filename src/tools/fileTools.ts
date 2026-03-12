@@ -416,3 +416,45 @@ export async function fileExistsTool(pathRelative: string): Promise<FileExistsRe
   return { path: pathRelative.replace(/\\/g, "/"), exists };
 }
 
+export interface WcResult {
+  path: string;
+  lines: number;
+  words: number;
+  bytes: number;
+}
+
+export async function wcTool(pathRelative: string): Promise<WcResult> {
+  if (isProtectedPath(pathRelative)) {
+    throw new Error("wcTool: cannot read protected path");
+  }
+  const normalized = pathRelative.replace(/\\/g, "/");
+  const content = await readWorkspaceFile(normalized);
+  const lines = content.split(/\r?\n/).length;
+  const words = content.split(/\s+/).filter(Boolean).length;
+  const bytes = Buffer.byteLength(content, "utf8");
+  return { path: normalized, lines, words, bytes };
+}
+
+export interface ReferencedByResult {
+  path: string;
+  /** File path (stem) used for the search */
+  stem: string;
+  /** Other files that reference this file (import/require or contain the stem). Excludes the file itself. */
+  referencedBy: Array<{ path: string; lineNumber: number; line: string }>;
+}
+
+export async function referencedByTool(filePath: string): Promise<ReferencedByResult> {
+  if (isProtectedPath(filePath)) {
+    throw new Error("referencedByTool: cannot search for protected path");
+  }
+  const normalized = filePath.replace(/\\/g, "/");
+  const base = path.basename(normalized);
+  const stem = base.replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/i, "") || base;
+  const pattern = "\\b" + escapeRegex(stem) + "\\b";
+  const grepResult = await grepTool(".", pattern, { maxMatches: 50 });
+  const referencedBy = grepResult.matches
+    .filter((m) => m.path !== normalized)
+    .map((m) => ({ path: m.path, lineNumber: m.lineNumber, line: m.line }));
+  return { path: normalized, stem, referencedBy };
+}
+
