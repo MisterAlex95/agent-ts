@@ -61,6 +61,41 @@ export async function listWorkspaceFiles(relativeDir = "."): Promise<string[]> {
   return files;
 }
 
+export interface WorkspaceEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+}
+
+export async function listWorkspaceDirectEntries(relativeDir = "."): Promise<WorkspaceEntry[]> {
+  const normalized = normalizeRelativePath(relativeDir);
+  const base = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, base)) {
+    return [];
+  }
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.readdir(base, { withFileTypes: true });
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === "ENOENT") {
+      return [];
+    }
+    throw err;
+  }
+
+  const result: WorkspaceEntry[] = [];
+  for (const entry of entries) {
+    const fullPath = path.join(relativeDir, entry.name).replace(/\\/g, "/");
+    if (entry.isDirectory()) {
+      result.push({ name: entry.name, path: fullPath, type: "directory" });
+    } else {
+      result.push({ name: entry.name, path: fullPath, type: "file" });
+    }
+  }
+  return result.sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function readWorkspaceFile(
   relativePath: string,
 ): Promise<string> {
@@ -132,8 +167,8 @@ export async function deleteWorkspaceFolder(relativePath: string): Promise<void>
     throw new Error(`Path escapes workspace: ${relativePath}`);
   }
   const parts = normalized.split("/").map((p) => p.toLowerCase());
-  if (parts.some((p) => FORBIDDEN_DIRS.has(p))) {
-    throw new Error(`Cannot delete forbidden directory: ${relativePath}`);
+  if (parts.some((p) => p === ".git")) {
+    throw new Error("Cannot delete .git directory");
   }
 
   async function removeRecursive(dirPath: string): Promise<void> {

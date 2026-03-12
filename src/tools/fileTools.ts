@@ -1,6 +1,7 @@
 import {
   getWorkspaceRoot,
   listWorkspaceFiles,
+  listWorkspaceDirectEntries,
   readWorkspaceFile,
   writeWorkspaceFile,
   backupFileIfExists,
@@ -16,7 +17,10 @@ import path from "node:path";
 
 export interface ListFilesResult {
   root: string;
+  /** Recursive list of all file paths under the path */
   files: string[];
+  /** Direct children (files and folders) so the agent can see directory structure */
+  entries: Array<{ name: string; path: string; type: "file" | "directory" }>;
 }
 
 export interface ReadFileResult {
@@ -97,8 +101,11 @@ export async function listFilesTool(
   relativePath: string,
 ): Promise<ListFilesResult> {
   const root = getWorkspaceRoot();
-  const files = await listWorkspaceFiles(relativePath);
-  return { root, files };
+  const [files, entries] = await Promise.all([
+    listWorkspaceFiles(relativePath),
+    listWorkspaceDirectEntries(relativePath),
+  ]);
+  return { root, files, entries };
 }
 
 export async function readFileTool(
@@ -294,6 +301,11 @@ export interface DeleteFolderResult {
   deletedFiles: string[];
 }
 
+function isGitPath(pathRelative: string): boolean {
+  const parts = pathRelative.replace(/\\/g, "/").split("/").map((p) => p.toLowerCase());
+  return parts.some((p) => p === ".git");
+}
+
 export async function deleteFolderTool(
   pathRelative: string,
 ): Promise<DeleteFolderResult> {
@@ -301,8 +313,8 @@ export async function deleteFolderTool(
   if (!normalized || normalized === "." || normalized === "..") {
     throw new Error("deleteFolderTool: cannot delete root or parent");
   }
-  if (isProtectedPath(normalized)) {
-    throw new Error(`deleteFolderTool: cannot delete protected path '${normalized}'`);
+  if (isGitPath(normalized)) {
+    throw new Error("deleteFolderTool: cannot delete .git directory");
   }
   const filesInside = await listWorkspaceFiles(normalized);
   const toRemove = filesInside.filter((f) => !isProtectedPath(f));
