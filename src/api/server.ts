@@ -1,0 +1,52 @@
+import dotenv from "dotenv";
+import express from "express";
+import { registerRoutes } from "./routes.js";
+
+dotenv.config();
+
+function validateConfig(): void {
+  const missing: string[] = [];
+  if (!process.env.QDRANT_URL) missing.push("QDRANT_URL");
+  if (!process.env.OLLAMA_BASE_URL)
+    missing.push("OLLAMA_BASE_URL (default http://localhost:11434 will be used)");
+  if (!process.env.OLLAMA_MODEL) missing.push("OLLAMA_MODEL");
+  if (!process.env.OLLAMA_EMBEDDING_MODEL)
+    missing.push("OLLAMA_EMBEDDING_MODEL");
+
+  if (missing.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[config] Some environment variables are missing or rely on defaults:",
+      missing.join(", "),
+    );
+  }
+}
+
+async function main(): Promise<void> {
+  validateConfig();
+
+  const app = express();
+  app.use(express.json());
+
+  registerRoutes(app);
+
+  app.use(
+    (
+      err: Error,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction,
+    ) => {
+      res.status(500).json({ error: err.message });
+    },
+  );
+
+  const port = Number(process.env.PORT ?? 3000);
+  app.listen(port, "0.0.0.0", () => {
+    // eslint-disable-next-line no-console
+    console.log(`HTTP server listening on http://0.0.0.0:${port}`);
+  });
+}
+
+void main();
+
