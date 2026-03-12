@@ -25,7 +25,8 @@ const TOOLS: Record<string, { params: string }> = {
   searchSymbols: { params: "query: string (function/class/endpoint name or purpose)" },
   listFiles: { params: "path: string (e.g. \".\" or \"src\")" },
   readFile: { params: "path: string (relative path)" },
-  writeFile: { params: "path: string, content: string" },
+  writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
+  editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; content must be indented, multiple lines)" },
   runCommand: { params: "command: string" },
   gitStatus: { params: "none" },
   gitDiff: { params: "path?: string, staged?: boolean" },
@@ -100,6 +101,7 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
     "listFiles",
     "readFile",
     "writeFile",
+    "editLines",
     "runCommand",
     "gitStatus",
     "gitDiff",
@@ -136,6 +138,21 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
         typeof paramsObj.path === "string" ? paramsObj.path : "";
       normalized.content =
         typeof paramsObj.content === "string" ? paramsObj.content : "";
+      break;
+    case "editLines":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      if (Array.isArray(paramsObj.edits)) {
+        normalized.edits = paramsObj.edits
+          .filter((e: unknown) => e && typeof e === "object" && "line" in e)
+          .map((e: Record<string, unknown>) => ({
+            line: typeof e.line === "number" ? e.line : Number(e.line) || 1,
+            content: typeof e.content === "string" ? e.content : "",
+            mode: e.mode === "insert" ? "insert" : "replace",
+          }));
+      } else {
+        normalized.edits = [];
+      }
       break;
     case "runCommand":
       normalized.command =

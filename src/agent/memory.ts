@@ -3,6 +3,7 @@ export type ToolName =
   | "searchSymbols"
   | "readFile"
   | "writeFile"
+  | "editLines"
   | "listFiles"
   | "runCommand"
   | "gitStatus"

@@ -1,5 +1,5 @@
 import { searchCodeTool, searchSymbolsTool } from "../tools/searchTools.js";
-import { readFileTool, writeFileTool, listFilesTool } from "../tools/fileTools.js";
+import { readFileTool, writeFileTool, listFilesTool, editLinesTool } from "../tools/fileTools.js";
 import { runCommandTool } from "../tools/commandTools.js";
 import {
   gitStatusTool,
@@ -20,6 +20,7 @@ export interface ExecuteToolOptions {
 
 const DRY_RUN_TOOLS: ToolName[] = [
   "writeFile",
+  "editLines",
   "runCommand",
   "gitCommit",
 ];
@@ -58,6 +59,17 @@ export async function executeTool(
     case "writeFile": {
       const { path, content } = params as { path: string; content: string };
       return writeFileTool(path, content);
+    }
+    case "editLines": {
+      const { path, edits } = params as { path: string; edits: Array<{ line: number; content: string; mode?: string }> };
+      const normalized = Array.isArray(edits)
+        ? edits.map((e) => ({
+            line: Number(e?.line) || 1,
+            content: typeof e?.content === "string" ? e.content : "",
+            mode: e?.mode === "insert" ? "insert" as const : "replace" as const,
+          }))
+        : [];
+      return editLinesTool(path, normalized);
     }
     case "listFiles": {
       const { path } = params as { path: string };

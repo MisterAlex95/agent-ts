@@ -14,6 +14,10 @@ Think in terms of a short multi-step plan (2-5 tool calls), but only OUTPUT the 
 
 Search: Use searchSymbols when the task is about finding a specific function, class, or API endpoint by name or purpose. Use searchCode for general code context or arbitrary snippets.
 
+Edits: When you know the exact line number(s) to change (e.g. from search results that include startLine), use editLines with path and edits: [{ line, content, mode: "replace"|"insert" }] instead of readFile then writeFile—faster and less token usage.
+
+Code format: When using writeFile or editLines, always output properly indented code. Use multiple lines and correct indentation (e.g. 2 or 4 spaces per level). Never minify or put code on a single line.
+
 Goal types:
 - generic: best-effort coding help; stop when you have gathered enough information or made the main change.
 - runTestsAndFix: run tests first; if they fail, inspect errors and files to fix them; stop when tests pass or you are blocked.
