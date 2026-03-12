@@ -1,8 +1,13 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import express from "express";
 import { registerRoutes } from "./routes.js";
 
 dotenv.config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.resolve(__dirname, "../../public");
 
 function validateConfig(): void {
   const missing: string[] = [];
@@ -29,6 +34,10 @@ async function main(): Promise<void> {
   app.use(express.json());
 
   registerRoutes(app);
+  app.get("/", (_req, res) => {
+    res.sendFile(path.join(PUBLIC_DIR, "index.html"));
+  });
+  app.use(express.static(PUBLIC_DIR));
 
   app.use(
     (

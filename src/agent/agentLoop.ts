@@ -5,12 +5,21 @@ import { summarizeRun } from "./responder.js";
 import type { ToolName } from "./memory.js";
 import type { GoalType } from "../api/schema.js";
 
+export interface StepEvent {
+  step: number;
+  tool: string;
+  params: unknown;
+  result?: unknown;
+  error?: string;
+}
+
 export interface AgentRunOptions {
   maxSteps?: number;
   goalType?: GoalType;
   verbose?: boolean;
   dryRun?: boolean;
   timeoutMs?: number;
+  onStep?: (event: StepEvent) => void;
 }
 
 export interface TraceEntry {
@@ -38,6 +47,7 @@ export async function runAgentLoop(
   const verbose = options?.verbose ?? false;
   const dryRun = options?.dryRun ?? false;
   const timeoutMs = options?.timeoutMs ?? 5 * 60 * 1000;
+  const onStep = options?.onStep;
   const memory = new AgentMemory(task);
   const trace: TraceEntry[] = [];
   const dryRunPlannedChanges: Array<{ tool: string; params: unknown }> = [];
@@ -105,6 +115,7 @@ export async function runAgentLoop(
         `Tool: ${tool}\nInput: ${JSON.stringify(params)}\nError: ${errorMessage}`,
       );
       steps += 1;
+      onStep?.({ step: steps, tool, params, error: errorMessage });
       continue;
     }
 
@@ -143,6 +154,7 @@ export async function runAgentLoop(
       `Tool: ${tool}\nInput: ${JSON.stringify(params)}\nOutput: ${outStr.slice(0, 2000)}`,
     );
     steps += 1;
+    onStep?.({ step: steps, tool, params, result: truncateForTrace(result) });
   }
 
   const snapshot = memory.snapshot();

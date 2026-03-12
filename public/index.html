@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0c0f;
+      --surface: #13161b;
+      --surface-hover: #181c22;
+      --border: #252b33;
+      --text: #e8edf4;
+      --muted: #7d8590;
+      --accent: #539bf5;
+      --accent-dim: #539bf522;
+      --success: #3fb950;
+      --success-dim: #3fb95022;
+      --danger: #f85149;
+      --danger-dim: #f8514922;
+      --warn: #d29922;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Outfit", sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .layout {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 1.75rem 1.25rem 3rem;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.75rem;
+      gap: 1rem;
+    }
+    h1 {
+      font-weight: 600;
+      font-size: 1.35rem;
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .status-pill.online { color: var(--success); border-color: var(--success); background: var(--success-dim); }
+    .status-pill.offline { color: var(--danger); border-color: var(--danger); background: var(--danger-dim); }
+    .status-pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-pill.offline .dot { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
+    label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    textarea {
+      width: 100%;
+      min-height: 110px;
+      padding: 0.85rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9rem;
+      resize: vertical;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    textarea::placeholder { color: var(--muted); opacity: 0.8; }
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-dim);
+    }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: flex-end;
+      margin-top: 1rem;
+    }
+    .field { flex: 0 0 auto; }
+    .field input, .field select {
+      padding: 0.5rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+    .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .field input[type="number"] { width: 4.5rem; }
+    .field select { min-width: 9.5rem; cursor: pointer; }
+    .checkboxes {
+      display: flex;
+      gap: 1.25rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .checkboxes label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      margin: 0;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .checkboxes input { accent-color: var(--accent); cursor: pointer; }
+    .btn {
+      padding: 0.55rem 1.2rem;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.05s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn-primary:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover:not(:disabled) { background: #323942; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      padding: 0.4rem 0.75rem;
+      font-size: 0.82rem;
+    }
+    .btn-ghost:hover { color: var(--text); background: var(--surface-hover); }
+    .result-card {
+      margin-top: 0.5rem;
+      animation: fadeIn 0.25s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .result-card .answer-block {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 1.1rem 1.25rem;
+      border-left: 3px solid var(--accent);
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .result-card .answer-block p { margin: 0 0 0.6em 0; }
+    .result-card .answer-block p:last-child { margin-bottom: 0; }
+    .result-card .answer-block code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.88em;
+      background: var(--surface);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+    .result-card .answer-block strong { font-weight: 600; color: var(--text); }
+    .result-card .meta-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+    .result-card details {
+      margin-top: 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .result-card summary {
+      padding: 0.6rem 1rem;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      background: var(--surface-hover);
+      user-select: none;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .result-card summary::-webkit-details-marker { display: none; }
+    .result-card summary::before { content: "▶"; font-size: 0.7rem; transition: transform 0.2s; }
+    .result-card details[open] summary::before { transform: rotate(90deg); }
+    .result-card .trace, .result-card .memory {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      padding: 1rem;
+      margin: 0;
+      overflow-x: auto;
+      max-height: 280px;
+      overflow-y: auto;
+      background: var(--bg);
+    }
+    .result-card .dry-run-list {
+      margin-top: 0.75rem;
+      padding-left: 1.25rem;
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+    .result-card .dry-run-list li { margin-bottom: 0.25rem; }
+    .error-box {
+      color: var(--danger);
+      background: var(--danger-dim);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid transparent;
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      vertical-align: -0.2em;
+      margin-right: 0.35rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .index-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .index-status {
+      font-size: 0.88rem;
+    }
+    .index-status.ok { color: var(--success); }
+    .index-status.err { color: var(--danger); }
+    .steps-live {
+      margin-top: 0.75rem;
+      padding: 0.85rem 1rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .steps-live-title { color: var(--muted); margin-bottom: 0.5rem; font-size: 0.8rem; }
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid var(--border);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
+    }
+    .step-item:last-child { border-bottom: none; }
+    .step-num { color: var(--accent); min-width: 2rem; }
+    .step-tool { color: var(--text); font-weight: 500; }
+    .step-params { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .step-item.error .step-tool { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header class="header">
+      <h1>Agent</h1>
+      <span class="status-pill" id="statusPill" aria-live="polite">Checking…</span>
+    </header>
+
+    <div class="card">
+      <label for="task">Task</label>
+      <textarea id="task" placeholder="e.g. Create a TypeScript file in the workspace that exports a hello() function" autofocus></textarea>
+      <p class="hint">Ctrl+Enter to run</p>
+      <div class="row">
+        <div class="field">
+          <label for="maxSteps">Max steps</label>
+          <input type="number" id="maxSteps" value="12" min="1" max="50" />
+        </div>
+        <div class="field">
+          <label for="goalType">Goal type</label>
+          <select id="goalType">
+            <option value="generic">generic</option>
+            <option value="runTestsAndFix">runTestsAndFix</option>
+            <option value="addEndpoint">addEndpoint</option>
+            <option value="improveTypes">improveTypes</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="timeoutMs">Timeout (s)</label>
+          <input type="number" id="timeoutMs" placeholder="300" min="10" title="Leave empty for default 300s" />
+        </div>
+        <div class="checkboxes">
+          <label><input type="checkbox" id="liveProgress" /> Live progress</label>
+          <label><input type="checkbox" id="verbose" /> Verbose</label>
+          <label><input type="checkbox" id="dryRun" /> Dry run</label>
+        </div>
+        <button type="button" class="btn btn-primary" id="runBtn">Run</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="index-row">
+        <button type="button" class="btn btn-secondary" id="indexBtn">Index workspace</button>
+        <span class="index-status" id="indexStatus"></span>
+      </div>
+    </div>
+
+    <div class="card result-card" id="resultCard" hidden aria-live="polite">
+      <div class="steps-live" id="stepsLive" hidden>
+        <div class="steps-live-title">Steps</div>
+        <div id="stepsList"></div>
+      </div>
+      <div class="meta-row">
+        <span id="resultLabel">Result</span>
+        <button type="button" class="btn btn-ghost" id="copyBtn" hidden>Copy answer</button>
+      </div>
+      <div id="answer" class="answer-block"></div>
+      <div id="meta" class="meta-row"></div>
+      <div id="dryRunBlock" hidden>
+        <span class="meta-row">Planned changes (dry run)</span>
+        <ol class="dry-run-list" id="dryRunList"></ol>
+      </div>
+      <details id="traceDetails">
+        <summary>Trace</summary>
+        <pre id="trace" class="trace"></pre>
+      </details>
+      <details id="memoryDetails">
+        <summary>Memory (actions)</summary>
+        <pre id="memory" class="memory"></pre>
+      </details>
+      <div id="errorBox" class="error-box" hidden></div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
