@@ -13,7 +13,7 @@ export function registerRoutes(app: Express): void {
   });
 
   app.post("/tasks/stream", async (req: Request, res: Response) => {
-    const { task, maxSteps, goalType, verbose, dryRun, timeoutMs } = req.body as Partial<TaskRequestBody>;
+    const { task, maxSteps, goalType, mode, verbose, dryRun, timeoutMs, history } = req.body as Partial<TaskRequestBody>;
     if (!task || typeof task !== "string") {
       res.status(400).json({ error: "Missing or invalid 'task' in body" });
       return;
@@ -28,9 +28,11 @@ export function registerRoutes(app: Express): void {
       const result = await runAgentLoop(task, {
         maxSteps,
         goalType,
+        mode,
         verbose,
         dryRun,
         timeoutMs,
+        history: Array.isArray(history) ? history : undefined,
         onStep: (ev) => writeSSE(res, { type: "step", ...ev }),
       });
       writeSSE(res, { type: "done", ...result });
@@ -44,7 +46,7 @@ export function registerRoutes(app: Express): void {
 
   app.post("/tasks", async (req: Request, res: Response) => {
     try {
-      const { task, maxSteps, goalType, verbose, dryRun, timeoutMs } = req.body as Partial<TaskRequestBody>;
+      const { task, maxSteps, goalType, mode, verbose, dryRun, timeoutMs, history } = req.body as Partial<TaskRequestBody>;
       if (!task || typeof task !== "string") {
         res.status(400).json({ error: "Missing or invalid 'task' in body" });
         return;
@@ -52,9 +54,11 @@ export function registerRoutes(app: Express): void {
       const result: TaskResponseBody = await runAgentLoop(task, {
         maxSteps,
         goalType,
+        mode,
         verbose,
         dryRun,
         timeoutMs,
+        history: Array.isArray(history) ? history : undefined,
       });
       res.json(result);
     } catch (err) {

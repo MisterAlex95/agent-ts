@@ -4,6 +4,10 @@ import {
   readWorkspaceFile,
   writeWorkspaceFile,
   backupFileIfExists,
+  deleteWorkspaceFile,
+  moveWorkspaceFile,
+  copyWorkspaceFile,
+  workspaceFileExists,
 } from "../runtime/workspaceManager.js";
 import { getForbiddenDirNames } from "../config/workspace.js";
 import path from "node:path";
@@ -54,6 +58,21 @@ export interface EditLinesResult {
   path: string;
   applied: number;
   message: string;
+}
+
+export interface DeleteFileResult {
+  path: string;
+  deleted: true;
+}
+
+export interface MoveFileResult {
+  from: string;
+  to: string;
+}
+
+export interface CopyFileResult {
+  from: string;
+  to: string;
 }
 
 const PROTECTED_PATH_PATTERNS: RegExp[] = [
@@ -238,5 +257,162 @@ export async function editLinesTool(
     applied,
     message: `Applied ${applied} edit(s)`,
   };
+}
+
+export async function deleteFileTool(
+  pathRelative: string,
+): Promise<DeleteFileResult> {
+  if (isProtectedPath(pathRelative)) {
+    throw new Error(`deleteFileTool: cannot delete protected path '${pathRelative}'`);
+  }
+  await deleteWorkspaceFile(pathRelative);
+  return { path: pathRelative.replace(/\\/g, "/"), deleted: true };
+}
+
+export async function moveFileTool(
+  fromPath: string,
+  toPath: string,
+): Promise<MoveFileResult> {
+  if (isProtectedPath(fromPath) || isProtectedPath(toPath)) {
+    throw new Error("moveFileTool: cannot move from or to a protected path");
+  }
+  await moveWorkspaceFile(fromPath, toPath);
+  return {
+    from: fromPath.replace(/\\/g, "/"),
+    to: toPath.replace(/\\/g, "/"),
+  };
+}
+
+export async function copyFileTool(
+  fromPath: string,
+  toPath: string,
+): Promise<CopyFileResult> {
+  if (isProtectedPath(fromPath) || isProtectedPath(toPath)) {
+    throw new Error("copyFileTool: cannot copy from or to a protected path");
+  }
+  await copyWorkspaceFile(fromPath, toPath);
+  return {
+    from: fromPath.replace(/\\/g, "/"),
+    to: toPath.replace(/\\/g, "/"),
+  };
+}
+
+export interface GrepMatch {
+  path: string;
+  lineNumber: number;
+  line: string;
+  match: string;
+}
+
+export interface GrepResult {
+  pattern: string;
+  path: string;
+  matches: GrepMatch[];
+  truncated: boolean;
+}
+
+const DEFAULT_GREP_MAX_MATCHES = 80;
+
+export async function grepTool(
+  pathOrDir: string,
+  pattern: string,
+  options?: { caseInsensitive?: boolean; maxMatches?: number },
+): Promise<GrepResult> {
+  const maxMatches = options?.maxMatches ?? DEFAULT_GREP_MAX_MATCHES;
+  const flags = options?.caseInsensitive ? "i" : "";
+  let regex: RegExp;
+  try {
+    regex = new RegExp(pattern, flags);
+  } catch {
+    regex = new RegExp(escapeRegex(pattern), flags);
+  }
+
+  const normalized = pathOrDir.replace(/\\/g, "/").trim() || ".";
+  let files: string[] = [];
+  try {
+    await readWorkspaceFile(normalized);
+    files = [normalized];
+  } catch {
+    const list = await listWorkspaceFiles(normalized);
+    files = list.filter((f) => !isProtectedPath(f));
+  }
+
+  const matches: GrepMatch[] = [];
+  for (const file of files) {
+    if (matches.length >= maxMatches) break;
+    try {
+      const content = await readWorkspaceFile(file);
+      const lines = content.split(/\r?\n/);
+      for (let i = 0; i < lines.length && matches.length < maxMatches; i++) {
+        const line = lines[i];
+        const m = line.match(regex);
+        if (m) {
+          matches.push({
+            path: file,
+            lineNumber: i + 1,
+            line,
+            match: m[0],
+          });
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return {
+    pattern,
+    path: normalized,
+    matches,
+    truncated: matches.length >= maxMatches,
+  };
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export interface FindFilesResult {
+  path: string;
+  pattern: string;
+  files: string[];
+}
+
+export async function findFilesTool(
+  dirPath: string,
+  namePattern: string,
+): Promise<FindFilesResult> {
+  const normalized = (dirPath || ".").replace(/\\/g, "/");
+  const all = await listWorkspaceFiles(normalized);
+  const re = globToRegex(namePattern);
+  const files = all.filter((f) => !isProtectedPath(f) && re.test(f));
+  return {
+    path: normalized,
+    pattern: namePattern,
+    files: files.sort(),
+  };
+}
+
+function globToRegex(glob: string): RegExp {
+  const escaped = glob
+    .replace(/\*\*/g, "\x01")
+    .replace(/\*/g, "\x02")
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\x02/g, "[^/]*")
+    .replace(/\x01/g, ".*");
+  return new RegExp(escaped + "$", "i");
+}
+
+export interface FileExistsResult {
+  path: string;
+  exists: boolean;
+}
+
+export async function fileExistsTool(pathRelative: string): Promise<FileExistsResult> {
+  if (isProtectedPath(pathRelative)) {
+    return { path: pathRelative.replace(/\\/g, "/"), exists: false };
+  }
+  const exists = await workspaceFileExists(pathRelative);
+  return { path: pathRelative.replace(/\\/g, "/"), exists };
 }
 

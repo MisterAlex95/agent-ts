@@ -72,6 +72,19 @@ export async function upsertPoints(points: QdrantPoint[]): Promise<void> {
   });
 }
 
+export async function deletePointsByFilter(filter: unknown): Promise<void> {
+  try {
+    await qdrantRequest(`/collections/${QDRANT_COLLECTION}/points/delete`, {
+      method: "POST",
+      body: JSON.stringify({ filter }),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("doesn't exist")) return;
+    throw err;
+  }
+}
+
 export async function searchPoints(
   vector: number[],
   limit: number,

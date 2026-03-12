@@ -2,7 +2,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { listWorkspaceFiles, readWorkspaceFile } from "../runtime/workspaceManager.js";
 import { embedTexts } from "./embeddings.js";
-import { ensureCollection, upsertPoints, QdrantPoint } from "./qdrantClient.js";
+import { ensureCollection, upsertPoints, deletePointsByFilter, QdrantPoint } from "./qdrantClient.js";
 
 const MAX_FILE_BYTES = 500_000;
 const MAX_FILE_LINES = 15_000;
@@ -249,5 +249,65 @@ export async function indexWorkspaceRepository(): Promise<{
     indexedFiles: indexedFileCount,
     indexedChunks: allChunks.length,
   };
+}
+
+export async function removeFileFromIndex(relativePath: string): Promise<void> {
+  const normalized = relativePath.replace(/\\/g, "/");
+  await deletePointsByFilter({
+    must: [{ key: "filePath", match: { value: normalized } }],
+  });
+}
+
+export async function indexWorkspaceFiles(
+  relativePaths: string[],
+): Promise<{ indexedFiles: number; indexedChunks: number }> {
+  if (relativePaths.length === 0) {
+    return { indexedFiles: 0, indexedChunks: 0 };
+  }
+  const normalizedPaths = relativePaths.map((p) => p.replace(/\\/g, "/"));
+  await deletePointsByFilter({
+    must: [{ key: "filePath", match: { any: normalizedPaths } }],
+  });
+
+  const allChunks: CodeChunk[] = [];
+  for (const filePath of normalizedPaths) {
+    try {
+      const content = await readWorkspaceFile(filePath);
+      if (!shouldIndexFile(filePath, content)) continue;
+      const chunks = splitCodeIntoChunks(filePath, content);
+      allChunks.push(...chunks);
+    } catch {
+      continue;
+    }
+  }
+
+  if (allChunks.length === 0) {
+    return { indexedFiles: 0, indexedChunks: 0 };
+  }
+
+  const texts = allChunks.map((c) => c.content);
+  const vectors = await embedTexts(texts);
+  if (vectors.length !== allChunks.length) {
+    throw new Error("Embeddings count does not match chunks count");
+  }
+  await ensureCollection(vectors[0].length);
+
+  const points: QdrantPoint[] = allChunks.map((chunk, idx) => ({
+    id: chunk.id,
+    vector: vectors[idx],
+    payload: {
+      filePath: chunk.metadata.filePath,
+      language: chunk.metadata.language,
+      startLine: chunk.metadata.startLine,
+      endLine: chunk.metadata.endLine,
+      symbol: chunk.metadata.symbol ?? null,
+      kind: chunk.metadata.kind ?? null,
+      content: chunk.content,
+    },
+  }));
+  await upsertPoints(points);
+
+  const indexedFiles = new Set(allChunks.map((c) => c.metadata.filePath)).size;
+  return { indexedFiles, indexedChunks: allChunks.length };
 }
 

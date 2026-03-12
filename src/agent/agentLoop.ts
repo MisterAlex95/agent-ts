@@ -2,8 +2,26 @@ import { AgentMemory } from "./memory.js";
 import { planNextAction } from "./planner.js";
 import { executeTool } from "./actionResolver.js";
 import { summarizeRun } from "./responder.js";
+import { inferGoalType } from "./inferGoalType.js";
+import { indexWorkspaceFiles, removeFileFromIndex } from "../rag/indexer.js";
 import type { ToolName } from "./memory.js";
-import type { GoalType } from "../api/schema.js";
+import type { GoalType, RunMode } from "../api/schema.js";
+import type { ConversationMessage } from "../api/schema.js";
+
+const MAX_HISTORY_MESSAGES = 10;
+const MAX_MESSAGE_LENGTH = 1500;
+
+function formatConversationHistory(history: ConversationMessage[] | undefined): string {
+  if (!history?.length) return "";
+  const slice = history.slice(-MAX_HISTORY_MESSAGES);
+  return slice
+    .map((m) => {
+      const label = m.role === "user" ? "User" : "Assistant";
+      const text = String(m.content ?? "").slice(0, MAX_MESSAGE_LENGTH);
+      return label + ": " + text + (String(m.content).length > MAX_MESSAGE_LENGTH ? "…" : "");
+    })
+    .join("\n\n");
+}
 
 export interface StepEvent {
   step: number;
@@ -16,10 +34,12 @@ export interface StepEvent {
 export interface AgentRunOptions {
   maxSteps?: number;
   goalType?: GoalType;
+  mode?: RunMode;
   verbose?: boolean;
   dryRun?: boolean;
   timeoutMs?: number;
   onStep?: (event: StepEvent) => void;
+  history?: ConversationMessage[];
 }
 
 export interface TraceEntry {
@@ -44,6 +64,7 @@ export async function runAgentLoop(
   options?: AgentRunOptions,
 ): Promise<AgentRunResult> {
   const maxSteps = options?.maxSteps ?? 8;
+  const mode = options?.mode ?? "Agent";
   const verbose = options?.verbose ?? false;
   const dryRun = options?.dryRun ?? false;
   const timeoutMs = options?.timeoutMs ?? 5 * 60 * 1000;
@@ -51,6 +72,10 @@ export async function runAgentLoop(
   const memory = new AgentMemory(task);
   const trace: TraceEntry[] = [];
   const dryRunPlannedChanges: Array<{ tool: string; params: unknown }> = [];
+
+  const goalType: GoalType =
+    options?.goalType ?? (await inferGoalType(task));
+  const conversationHistory = formatConversationHistory(options?.history);
 
   let steps = 0;
   const observationSummaries: string[] = [];
@@ -72,7 +97,9 @@ export async function runAgentLoop(
       task,
       recentObservations,
       relevantContext,
-      goalType: options?.goalType ?? "generic",
+      goalType,
+      mode,
+      conversationHistory,
     });
 
     if (!planned) {
@@ -81,9 +108,24 @@ export async function runAgentLoop(
 
     const { tool, params } = planned;
 
+    if (mode === "Plan") {
+      dryRunPlannedChanges.push({ tool, params });
+      memory.recordObservation({
+        tool,
+        input: params,
+        output: { planned: true, message: "Not executed (Plan mode)" },
+      });
+      observationSummaries.push(
+        `Tool: ${tool}\nInput: ${JSON.stringify(params)}\nOutput: (planned, not executed)`,
+      );
+      steps += 1;
+      onStep?.({ step: steps, tool, params, result: { planned: true } });
+      continue;
+    }
+
     let result: unknown;
     try {
-      result = await executeTool(tool as ToolName, params, { dryRun });
+      result = await executeTool(tool as ToolName, params, { dryRun, mode });
       if (dryRun && typeof result === "object" && result !== null && "dryRun" in result && (result as { dryRun: boolean }).dryRun) {
         const r = result as { planned?: { tool: string; params: unknown } };
         if (r.planned) dryRunPlannedChanges.push(r.planned);
@@ -155,6 +197,10 @@ export async function runAgentLoop(
     );
     steps += 1;
     onStep?.({ step: steps, tool, params, result: truncateForTrace(result) });
+
+    if (!dryRun && mode === "Agent") {
+      triggerAutoIndex(tool, params);
+    }
   }
 
   const snapshot = memory.snapshot();
@@ -171,7 +217,7 @@ export async function runAgentLoop(
     memory: snapshot,
     answer,
     ...(verbose && trace.length > 0 ? { trace } : {}),
-    ...(dryRun && dryRunPlannedChanges.length > 0
+    ...((mode === "Plan" || (dryRun && dryRunPlannedChanges.length > 0)) && dryRunPlannedChanges.length > 0
       ? { dryRunPlannedChanges }
       : {}),
   };
@@ -185,6 +231,30 @@ const TRACE_OUTPUT_MAX = 600;
 function truncateForTrace(output: unknown): string {
   const s = typeof output === "string" ? output : JSON.stringify(output);
   return s.length <= TRACE_OUTPUT_MAX ? s : s.slice(0, TRACE_OUTPUT_MAX) + "...";
+}
+
+function triggerAutoIndex(tool: string, params: unknown): void {
+  const p = params as Record<string, unknown>;
+  const path = typeof p?.path === "string" ? p.path : "";
+  const from = typeof p?.from === "string" ? p.from : "";
+  const to = typeof p?.to === "string" ? p.to : "";
+
+  void (async () => {
+    try {
+      if (tool === "writeFile" || tool === "editLines") {
+        if (path) await indexWorkspaceFiles([path]);
+      } else if (tool === "deleteFile") {
+        if (path) await removeFileFromIndex(path);
+      } else if (tool === "moveFile") {
+        if (from) await removeFileFromIndex(from);
+        if (to) await indexWorkspaceFiles([to]);
+      } else if (tool === "copyFile") {
+        if (to) await indexWorkspaceFiles([to]);
+      }
+    } catch {
+      // ignore index errors so the agent loop is not affected
+    }
+  })();
 }
 
 const OBSERVATIONS_TAIL = 3;

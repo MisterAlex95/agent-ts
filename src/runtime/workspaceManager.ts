@@ -72,6 +72,18 @@ export async function readWorkspaceFile(
   return fs.readFile(fullPath, "utf8");
 }
 
+export async function workspaceFileExists(relativePath: string): Promise<boolean> {
+  const normalized = normalizeRelativePath(relativePath);
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) return false;
+  try {
+    await fs.access(fullPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function writeWorkspaceFile(
   relativePath: string,
   content: string,
@@ -83,6 +95,45 @@ export async function writeWorkspaceFile(
   }
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, content, "utf8");
+}
+
+export async function deleteWorkspaceFile(relativePath: string): Promise<void> {
+  const normalized = normalizeRelativePath(relativePath);
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) {
+    throw new Error(`Path escapes workspace: ${relativePath}`);
+  }
+  await fs.unlink(fullPath);
+}
+
+export async function moveWorkspaceFile(
+  fromRelative: string,
+  toRelative: string,
+): Promise<void> {
+  const fromNorm = normalizeRelativePath(fromRelative);
+  const toNorm = normalizeRelativePath(toRelative);
+  const fromFull = path.resolve(ROOT, fromNorm);
+  const toFull = path.resolve(ROOT, toNorm);
+  if (!isPathWithinWorkspace(ROOT, fromFull) || !isPathWithinWorkspace(ROOT, toFull)) {
+    throw new Error("Paths must be within workspace");
+  }
+  await fs.mkdir(path.dirname(toFull), { recursive: true });
+  await fs.rename(fromFull, toFull);
+}
+
+export async function copyWorkspaceFile(
+  fromRelative: string,
+  toRelative: string,
+): Promise<void> {
+  const fromNorm = normalizeRelativePath(fromRelative);
+  const toNorm = normalizeRelativePath(toRelative);
+  const fromFull = path.resolve(ROOT, fromNorm);
+  const toFull = path.resolve(ROOT, toNorm);
+  if (!isPathWithinWorkspace(ROOT, fromFull) || !isPathWithinWorkspace(ROOT, toFull)) {
+    throw new Error("Paths must be within workspace");
+  }
+  await fs.mkdir(path.dirname(toFull), { recursive: true });
+  await fs.copyFile(fromFull, toFull);
 }
 
 const BACKUP_ENABLED =

@@ -1,6 +1,10 @@
 (function () {
   const TASK_KEY = "agent-last-task";
+  const MAX_HISTORY = 10;
+  let conversationHistory = [];
+
   const taskInput = document.getElementById("task");
+  const modeSelect = document.getElementById("mode");
   const maxStepsInput = document.getElementById("maxSteps");
   const goalTypeSelect = document.getElementById("goalType");
   const timeoutMsInput = document.getElementById("timeoutMs");
@@ -8,6 +12,8 @@
   const verboseCheck = document.getElementById("verbose");
   const dryRunCheck = document.getElementById("dryRun");
   const runBtn = document.getElementById("runBtn");
+  const newConvBtn = document.getElementById("newConvBtn");
+  const historyHint = document.getElementById("historyHint");
   const stepsLive = document.getElementById("stepsLive");
   const stepsList = document.getElementById("stepsList");
   const indexBtn = document.getElementById("indexBtn");
@@ -24,6 +30,26 @@
   const copyBtn = document.getElementById("copyBtn");
   const dryRunBlock = document.getElementById("dryRunBlock");
   const dryRunList = document.getElementById("dryRunList");
+
+  function pushToHistory(userMsg, assistantMsg) {
+    conversationHistory.push({ role: "user", content: userMsg });
+    conversationHistory.push({ role: "assistant", content: assistantMsg });
+    if (conversationHistory.length > MAX_HISTORY) {
+      conversationHistory = conversationHistory.slice(-MAX_HISTORY);
+    }
+    if (historyHint) {
+      historyHint.textContent = conversationHistory.length ? "Context: " + conversationHistory.length + " messages" : "";
+      historyHint.hidden = !conversationHistory.length;
+    }
+  }
+
+  function clearHistory() {
+    conversationHistory = [];
+    if (historyHint) {
+      historyHint.textContent = "";
+      historyHint.hidden = true;
+    }
+  }
 
   function showError(msg) {
     errorBox.textContent = msg;
@@ -60,6 +86,65 @@
       .replace(/\n/g, "<br>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
       .replace(/`([^`]+)`/g, function (_, c) { return "<code>" + escaped(c) + "</code>"; });
+  }
+
+  function escapeHtml(s) {
+    if (s == null || s === "") return "";
+    const t = String(s);
+    return t
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function summarizeParams(input) {
+    if (input == null || typeof input !== "object") return "";
+    const o = input;
+    const parts = [];
+    if (o.path != null) parts.push("path: " + escapeHtml(String(o.path).slice(0, 60)));
+    if (o.query != null) parts.push("query: " + escapeHtml(String(o.query).slice(0, 50)));
+    if (o.command != null) parts.push("cmd: " + escapeHtml(String(o.command).slice(0, 50)));
+    if (o.pattern != null) parts.push("pattern: " + escapeHtml(String(o.pattern).slice(0, 40)));
+    if (o.namePattern != null) parts.push("name: " + escapeHtml(String(o.namePattern)));
+    if (parts.length) return parts.join(" · ");
+    const j = JSON.stringify(o);
+    return escapeHtml(j.length > 80 ? j.slice(0, 80) + "…" : j);
+  }
+
+  function summarizeOutput(output) {
+    if (output == null) return "";
+    if (typeof output === "object" && output.error) return escapeHtml(String(output.error));
+    const s = typeof output === "string" ? output : JSON.stringify(output);
+    return escapeHtml(s.length > 220 ? s.slice(0, 220) + "…" : s);
+  }
+
+  function renderMemory(actions) {
+    if (!Array.isArray(actions) || !actions.length) return "";
+    return actions
+      .map(function (a, i) {
+        const tool = escapeHtml(a.tool || "?");
+        const params = summarizeParams(a.input);
+        const outStr = typeof a.output === "string" ? a.output : JSON.stringify(a.output);
+        const hasError = a.output && typeof a.output === "object" && "error" in a.output;
+        const truncated = outStr.length > 220;
+        const outputPreview = summarizeOutput(a.output);
+        const outputFull = escapeHtml(outStr.length > 500 ? outStr.slice(0, 500) + "…" : outStr);
+        const cls = hasError ? "memory-item has-error" : "memory-item";
+        return (
+          '<div class="' + cls + '" data-step="' + (i + 1) + '">' +
+            '<div class="memory-header">' +
+              '<span class="memory-tool">' + tool + '</span>' +
+              (params ? '<span class="memory-params">' + params + '</span>' : '') +
+            '</div>' +
+            '<div class="memory-output' + (truncated ? ' truncated" title="' + outputFull + '"' : '"') + '>' +
+              outputPreview +
+            '</div>' +
+            (truncated ? '<details class="memory-output-full"><summary>Show full output</summary><pre>' + outputFull + '</pre></details>' : '') +
+          '</div>'
+        );
+      })
+      .join("");
   }
 
   function updateCopyButton(visible, text) {
@@ -125,11 +210,14 @@
     const task = taskInput.value.trim();
     const body = {
       task,
+      mode: modeSelect.value || "Agent",
       maxSteps: Number(maxStepsInput.value) || 12,
-      goalType: goalTypeSelect.value,
       verbose: verboseCheck.checked,
       dryRun: dryRunCheck.checked,
     };
+    if (conversationHistory.length) body.history = conversationHistory.slice(-MAX_HISTORY);
+    const gt = goalTypeSelect.value;
+    if (gt && gt !== "auto") body.goalType = gt;
     const timeoutVal = timeoutMsInput.value.trim();
     if (timeoutVal) body.timeoutMs = Number(timeoutVal) * 1000;
 
@@ -164,6 +252,7 @@
             answerEl.innerHTML = renderAnswer(answerRaw);
             answerEl.className = "answer-block";
             updateCopyButton(true, data.answer ?? "");
+            pushToHistory(task, data.answer ?? "");
             metaEl.textContent = "Steps: " + (data.steps ?? 0);
             if (data.dryRunPlannedChanges?.length) {
               dryRunBlock.hidden = false;
@@ -178,9 +267,12 @@
               traceDetails.hidden = false;
             } else traceDetails.hidden = true;
             if (data.memory?.actions?.length) {
-              memoryEl.textContent = JSON.stringify(data.memory.actions, null, 2);
+              memoryEl.innerHTML = renderMemory(data.memory.actions);
               memoryDetails.hidden = false;
-            } else memoryDetails.hidden = true;
+            } else {
+              memoryEl.innerHTML = "";
+              memoryDetails.hidden = true;
+            }
           } else if (data.type === "error") {
             showError(data.error || "Unknown error");
           }
@@ -202,7 +294,7 @@
     metaEl.textContent = "";
     metaEl.className = "meta-row";
     traceEl.textContent = "";
-    memoryEl.textContent = "";
+    memoryEl.innerHTML = "";
     dryRunBlock.hidden = true;
     dryRunList.innerHTML = "";
     traceDetails.open = false;
@@ -224,11 +316,14 @@
       } else {
         const body = {
           task,
+          mode: modeSelect.value || "Agent",
           maxSteps: Number(maxStepsInput.value) || 12,
-          goalType: goalTypeSelect.value,
           verbose: verboseCheck.checked,
           dryRun: dryRunCheck.checked,
         };
+        if (conversationHistory.length) body.history = conversationHistory.slice(-MAX_HISTORY);
+        const gt = goalTypeSelect.value;
+        if (gt && gt !== "auto") body.goalType = gt;
         const timeoutVal = timeoutMsInput.value.trim();
         if (timeoutVal) body.timeoutMs = Number(timeoutVal) * 1000;
 
@@ -249,6 +344,7 @@
         answerEl.innerHTML = renderAnswer(answerRaw);
         answerEl.className = "answer-block";
         updateCopyButton(true, data.answer ?? "");
+        pushToHistory(task, data.answer ?? "");
 
         metaEl.textContent = "Steps: " + (data.steps ?? 0);
         if (data.dryRunPlannedChanges?.length) {
@@ -267,9 +363,10 @@
           traceDetails.hidden = true;
         }
         if (data.memory?.actions?.length) {
-          memoryEl.textContent = JSON.stringify(data.memory.actions, null, 2);
+          memoryEl.innerHTML = renderMemory(data.memory.actions);
           memoryDetails.hidden = false;
         } else {
+          memoryEl.innerHTML = "";
           memoryDetails.hidden = true;
         }
       }
@@ -280,6 +377,8 @@
       setRunning(false);
     }
   }
+
+  if (newConvBtn) newConvBtn.addEventListener("click", clearHistory);
 
   indexBtn.addEventListener("click", async function () {
     indexStatus.textContent = "";

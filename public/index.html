@@ -241,7 +241,7 @@
     .result-card summary::-webkit-details-marker { display: none; }
     .result-card summary::before { content: "▶"; font-size: 0.7rem; transition: transform 0.2s; }
     .result-card details[open] summary::before { transform: rotate(90deg); }
-    .result-card .trace, .result-card .memory {
+    .result-card .trace {
       font-family: "JetBrains Mono", monospace;
       font-size: 0.78rem;
       padding: 1rem;
@@ -250,6 +250,71 @@
       max-height: 280px;
       overflow-y: auto;
       background: var(--bg);
+    }
+    .memory-list {
+      padding: 0.5rem 0;
+      margin: 0;
+      max-height: 320px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+    }
+    .memory-item {
+      padding: 0.6rem 1rem;
+      margin-bottom: 0.35rem;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--accent);
+    }
+    .memory-item:last-child { margin-bottom: 0; }
+    .memory-item.has-error { border-left-color: var(--danger); }
+    .memory-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.35rem;
+    }
+    .memory-tool {
+      font-family: "JetBrains Mono", monospace;
+      font-weight: 600;
+      color: var(--accent);
+    }
+    .memory-params {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .memory-output {
+      font-size: 0.8rem;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 4.5em;
+      overflow: hidden;
+      position: relative;
+    }
+    .memory-output.truncated::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1.5em;
+      background: linear-gradient(transparent, var(--bg));
+    }
+    .memory-output-full {
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-top: 0.35rem;
+      padding-top: 0.35rem;
+      border-top: 1px solid var(--border);
+    }
+    .memory-output-full summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.78rem;
     }
     .result-card .dry-run-list {
       margin-top: 0.75rem;
@@ -328,12 +393,21 @@
       <p class="hint">Ctrl+Enter to run</p>
       <div class="row">
         <div class="field">
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="Agent">Agent</option>
+            <option value="Plan">Plan</option>
+            <option value="Ask">Ask</option>
+          </select>
+        </div>
+        <div class="field">
           <label for="maxSteps">Max steps</label>
           <input type="number" id="maxSteps" value="12" min="1" max="50" />
         </div>
         <div class="field">
           <label for="goalType">Goal type</label>
           <select id="goalType">
+            <option value="auto" selected>auto</option>
             <option value="generic">generic</option>
             <option value="runTestsAndFix">runTestsAndFix</option>
             <option value="addEndpoint">addEndpoint</option>
@@ -350,6 +424,8 @@
           <label><input type="checkbox" id="dryRun" /> Dry run</label>
         </div>
         <button type="button" class="btn btn-primary" id="runBtn">Run</button>
+        <button type="button" class="btn btn-ghost" id="newConvBtn">New conversation</button>
+        <span class="hint" id="historyHint" hidden aria-live="polite"></span>
       </div>
     </div>
 
@@ -381,7 +457,7 @@
       </details>
       <details id="memoryDetails">
         <summary>Memory (actions)</summary>
-        <pre id="memory" class="memory"></pre>
+        <div id="memory" class="memory-list" aria-label="Agent actions"></div>
       </details>
       <div id="errorBox" class="error-box" hidden></div>
     </div>

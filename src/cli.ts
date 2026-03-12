@@ -9,15 +9,18 @@
 const BASE_URL = process.env.AGENT_API_URL ?? "http://localhost:3000";
 
 type GoalType = "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
+type RunMode = "Agent" | "Plan" | "Ask";
 
 const GOAL_TYPES: GoalType[] = ["generic", "runTestsAndFix", "addEndpoint", "improveTypes"];
+const MODES: RunMode[] = ["Agent", "Plan", "Ask"];
 
-function parseArgs(args: string[]): { command: string; task?: string; maxSteps?: number; goalType?: GoalType; verbose?: boolean; timeoutMs?: number } {
+function parseArgs(args: string[]): { command: string; task?: string; maxSteps?: number; goalType?: GoalType; mode?: RunMode; verbose?: boolean; timeoutMs?: number } {
   const verbose = args.includes("--verbose");
   const command = args[0];
 
   let maxSteps: number | undefined;
   let goalType: GoalType | undefined;
+  let mode: RunMode | undefined;
   let timeoutMs: number | undefined;
   const skip = new Set<number>();
 
@@ -30,6 +33,11 @@ function parseArgs(args: string[]): { command: string; task?: string; maxSteps?:
     if (args[i] === "--goal-type" && args[i + 1] != null) {
       const g = args[i + 1];
       if (GOAL_TYPES.includes(g as GoalType)) goalType = g as GoalType;
+      skip.add(i).add(i + 1);
+    }
+    if (args[i] === "--mode" && args[i + 1] != null) {
+      const m = args[i + 1];
+      if (MODES.includes(m as RunMode)) mode = m as RunMode;
       skip.add(i).add(i + 1);
     }
     if ((args[i] === "--timeout" || args[i] === "--timeout-ms") && args[i + 1] != null) {
@@ -46,9 +54,9 @@ function parseArgs(args: string[]): { command: string; task?: string; maxSteps?:
       taskParts.push(args[i]);
     }
     const task = taskParts.length > 0 ? taskParts.join(" ").trim() : undefined;
-    return { command, task, maxSteps, goalType, verbose, timeoutMs };
+    return { command, task, maxSteps, goalType, mode, verbose, timeoutMs };
   }
-  return { command, maxSteps, goalType, verbose, timeoutMs };
+  return { command, maxSteps, goalType, mode, verbose, timeoutMs };
 }
 
 async function runIndex(): Promise<void> {
@@ -62,10 +70,11 @@ async function runIndex(): Promise<void> {
   console.log(`Indexed ${data.indexedFiles ?? 0} files, ${data.indexedChunks ?? 0} chunks.`);
 }
 
-async function runTask(task: string, options: { maxSteps?: number; goalType?: GoalType; verbose?: boolean; timeoutMs?: number }): Promise<void> {
+async function runTask(task: string, options: { maxSteps?: number; goalType?: GoalType; mode?: RunMode; verbose?: boolean; timeoutMs?: number }): Promise<void> {
   const body: Record<string, unknown> = { task };
   if (options.maxSteps != null) body.maxSteps = options.maxSteps;
   if (options.goalType != null) body.goalType = options.goalType;
+  if (options.mode != null) body.mode = options.mode;
   if (options.verbose != null) body.verbose = options.verbose;
   if (options.timeoutMs != null) body.timeoutMs = options.timeoutMs;
 
@@ -108,11 +117,12 @@ function printUsage(): void {
   console.log(`
 Usage:
   agent index
-  agent run "Task description" [--max-steps N] [--goal-type TYPE] [--verbose] [--timeout MS]
+  agent run "Task description" [--max-steps N] [--mode MODE] [--goal-type TYPE] [--verbose] [--timeout MS]
 
 Options:
   --max-steps N    Max steps (default: 8)
-  --goal-type      generic | runTestsAndFix | addEndpoint | improveTypes
+  --mode           Agent | Plan | Ask (default: Agent). Plan = plan only; Ask = read-only.
+  --goal-type      generic | runTestsAndFix | addEndpoint | improveTypes (omit to auto-detect)
   --verbose        Print structured trace
   --timeout MS     Task timeout in ms (default: 300000)
 
@@ -123,7 +133,7 @@ Env:
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { command, task, maxSteps, goalType, verbose, timeoutMs } = parseArgs(args);
+  const { command, task, maxSteps, goalType, mode, verbose, timeoutMs } = parseArgs(args);
 
   if (!command || command === "help" || command === "-h" || command === "--help") {
     printUsage();
@@ -140,7 +150,7 @@ async function main(): Promise<void> {
       console.error("Missing task. Usage: agent run \"Your task here\"");
       process.exit(1);
     }
-    await runTask(task, { maxSteps, goalType, verbose, timeoutMs });
+    await runTask(task, { maxSteps, goalType, mode, verbose, timeoutMs });
     return;
   }
 

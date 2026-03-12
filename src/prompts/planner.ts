@@ -3,6 +3,17 @@ export interface PlanningContext {
   recentObservations: string;
   relevantContext: string;
   goalType: "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
+  conversationHistory?: string;
+}
+
+export function getPlannerAskModePrompt(toolsList: string): string {
+  return `You are a read-only coding assistant. The user is in Ask mode: you may ONLY use these tools to search, list, read, and inspect the codebase. You must NOT use writeFile, editLines, deleteFile, moveFile, copyFile, runCommand, gitCommit, runTests, runLint, runBuild.
+
+Answer the user's question using only:
+${toolsList}
+
+Respond with exactly one JSON object. When you have enough information to answer, use {"tool":"DONE","params":{}}.
+`;
 }
 
 export function getPlannerSystemPrompt(toolsList: string): string {
@@ -24,6 +35,12 @@ Goal types:
 - addEndpoint: add or modify an API endpoint, plus any minimal tests or wiring needed.
 - improveTypes: improve TypeScript types in the relevant code.
 
+Avoid:
+- Do NOT call the same tool again if the last result was an error (e.g. "Missing script", "Path escapes workspace", "File does not exist"). Try a different action or reply DONE.
+- Paths are relative to the workspace root only. You cannot delete or read files outside it (e.g. ../ is invalid). If you got "Path escapes workspace", do not retry with a similar path.
+- git commit does not "remove" untracked files; it records staged changes. To remove a file from disk use deleteFile with a path inside the workspace.
+- If runLint, runTests, or runBuild returned "Missing script", that script is not in the project; do not call that tool again.
+
 Available tools and their params (respond with JSON only):
 ${toolsList}
 
@@ -36,7 +53,10 @@ Respond with exactly one JSON object, no other text. Examples:
 }
 
 export function getPlannerUserPrompt(ctx: PlanningContext): string {
-  return `Task: ${ctx.task}
+  const historyBlock = ctx.conversationHistory
+    ? `Conversation so far:\n${ctx.conversationHistory}\n\nCurrent task: ${ctx.task}`
+    : `Task: ${ctx.task}`;
+  return `${historyBlock}
 Goal type: ${ctx.goalType}
 
 Relevant code context (from semantic search):
@@ -48,6 +68,8 @@ ${ctx.recentObservations || "(none yet)"}
 When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
 
 Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile yet; the user asked to run tests and you have not called runTests yet; the user asked for a specific change and you have not attempted it yet.
+
+If the last tool already failed (error in output), do NOT repeat the same tool with the same intent; choose a different tool or DONE.
 
 What is the next tool to run? Reply with a single JSON object: {"tool":"...","params":{...}} or {"tool":"DONE","params":{}}.`;
 }

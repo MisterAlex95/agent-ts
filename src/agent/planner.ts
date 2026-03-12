@@ -1,8 +1,10 @@
 import { ollamaChat } from "../llm/ollamaClient.js";
 import type { ToolName } from "./memory.js";
+import type { RunMode } from "../api/schema.js";
 import {
   getPlannerSystemPrompt,
   getPlannerUserPrompt,
+  getPlannerAskModePrompt,
   PLANNER_RETRY_PROMPT,
   PLANNER_FALLBACK_PROMPT,
 } from "../prompts/planner.js";
@@ -18,7 +20,22 @@ export interface PlanningContext {
   recentObservations: string;
   relevantContext: string;
   goalType: "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
+  mode?: RunMode;
+  conversationHistory?: string;
 }
+
+export const READ_ONLY_TOOLS: ToolName[] = [
+  "searchCode",
+  "searchSymbols",
+  "listFiles",
+  "readFile",
+  "grep",
+  "findFiles",
+  "fileExists",
+  "gitStatus",
+  "gitDiff",
+  "gitLog",
+];
 
 const TOOLS: Record<string, { params: string }> = {
   searchCode: { params: "query: string (general code context)" },
@@ -27,6 +44,12 @@ const TOOLS: Record<string, { params: string }> = {
   readFile: { params: "path: string (relative path)" },
   writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
   editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; content must be indented, multiple lines)" },
+  deleteFile: { params: "path: string (relative path; protected paths forbidden)" },
+  moveFile: { params: "from: string, to: string (relative paths)" },
+  copyFile: { params: "from: string, to: string (relative paths)" },
+  grep: { params: "path?: string (dir or file), pattern: string (regex), caseInsensitive?: boolean, maxMatches?: number" },
+  findFiles: { params: "path?: string (dir), namePattern: string (e.g. \"*.ts\", \"*.test.ts\")" },
+  fileExists: { params: "path: string (relative path)" },
   runCommand: { params: "command: string" },
   gitStatus: { params: "none" },
   gitDiff: { params: "path?: string, staged?: boolean" },
@@ -87,7 +110,10 @@ function extractJson(text: string): unknown {
   }
 }
 
-function parsePlannedAction(data: unknown): PlannedAction | null {
+function parsePlannedAction(
+  data: unknown,
+  allowedTools?: ToolName[],
+): PlannedAction | null {
   if (!data || typeof data !== "object") return null;
   const obj = data as Record<string, unknown>;
   const tool = obj.tool;
@@ -95,22 +121,30 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
 
   if (tool === "DONE") return null;
 
-  const validTools: ToolName[] = [
-    "searchCode",
-    "searchSymbols",
-    "listFiles",
-    "readFile",
-    "writeFile",
-    "editLines",
-    "runCommand",
-    "gitStatus",
-    "gitDiff",
-    "gitLog",
-    "gitCommit",
-    "runTests",
-    "runLint",
-    "runBuild",
-  ];
+  const validTools: ToolName[] =
+    allowedTools ??
+    ([
+      "searchCode",
+      "searchSymbols",
+      "listFiles",
+      "readFile",
+      "writeFile",
+      "editLines",
+      "deleteFile",
+      "moveFile",
+      "copyFile",
+      "grep",
+      "findFiles",
+      "fileExists",
+      "runCommand",
+      "gitStatus",
+      "gitDiff",
+      "gitLog",
+      "gitCommit",
+      "runTests",
+      "runLint",
+      "runBuild",
+    ] as ToolName[]);
   if (!validTools.includes(tool as ToolName)) return null;
 
   const params = obj.params;
@@ -154,6 +188,36 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
         normalized.edits = [];
       }
       break;
+    case "deleteFile":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      break;
+    case "moveFile":
+    case "copyFile":
+      normalized.from =
+        typeof paramsObj.from === "string" ? paramsObj.from : "";
+      normalized.to =
+        typeof paramsObj.to === "string" ? paramsObj.to : "";
+      break;
+    case "grep":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : ".";
+      normalized.pattern =
+        typeof paramsObj.pattern === "string" ? paramsObj.pattern : "";
+      normalized.caseInsensitive = Boolean(paramsObj.caseInsensitive);
+      if (typeof paramsObj.maxMatches === "number")
+        normalized.maxMatches = paramsObj.maxMatches;
+      break;
+    case "findFiles":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : ".";
+      normalized.namePattern =
+        typeof paramsObj.namePattern === "string" ? paramsObj.namePattern : "*";
+      break;
+    case "fileExists":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      break;
     case "runCommand":
       normalized.command =
         typeof paramsObj.command === "string" ? paramsObj.command : "";
@@ -190,10 +254,40 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
 export async function planNextAction(
   ctx: PlanningContext,
 ): Promise<PlannedAction | null> {
+  const isAsk = ctx.mode === "Ask";
+  const allowedTools: ToolName[] = isAsk
+    ? READ_ONLY_TOOLS
+    : ([
+        "searchCode",
+        "searchSymbols",
+        "listFiles",
+        "readFile",
+        "writeFile",
+        "editLines",
+        "deleteFile",
+        "moveFile",
+        "copyFile",
+        "grep",
+        "findFiles",
+        "fileExists",
+        "runCommand",
+        "gitStatus",
+        "gitDiff",
+        "gitLog",
+        "gitCommit",
+        "runTests",
+        "runLint",
+        "runBuild",
+      ] as ToolName[]);
+
   const toolsList = Object.entries(TOOLS)
+    .filter(([name]) => name === "DONE" || allowedTools.includes(name as ToolName))
     .map(([name, { params }]) => `- ${name}: ${params}`)
     .join("\n");
-  const systemPrompt = getPlannerSystemPrompt(toolsList);
+
+  const systemPrompt = isAsk
+    ? getPlannerAskModePrompt(toolsList)
+    : getPlannerSystemPrompt(toolsList);
   const userPrompt = getPlannerUserPrompt(ctx);
 
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
@@ -205,7 +299,7 @@ export async function planNextAction(
     try {
       const { content } = await ollamaChat(messages, { temperature: 0.1 });
       const data = extractJson(content);
-      const parsed = parsePlannedAction(data);
+      const parsed = parsePlannedAction(data, allowedTools);
       if (parsed) return parsed;
       if (attempt === 0) {
         messages.push({
