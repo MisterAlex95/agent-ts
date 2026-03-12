@@ -14,10 +14,34 @@ import type { ToolName } from "./memory.js";
 
 export type ToolExecutionResult = unknown;
 
+export interface ExecuteToolOptions {
+  dryRun?: boolean;
+}
+
+const DRY_RUN_TOOLS: ToolName[] = [
+  "writeFile",
+  "runCommand",
+  "gitCommit",
+];
+
+function isDryRunOnly(tool: ToolName): boolean {
+  return DRY_RUN_TOOLS.includes(tool);
+}
+
 export async function executeTool(
   tool: ToolName,
   params: unknown,
+  options?: ExecuteToolOptions,
 ): Promise<ToolExecutionResult> {
+  const dryRun = options?.dryRun ?? false;
+  if (dryRun && isDryRunOnly(tool)) {
+    return {
+      dryRun: true,
+      planned: { tool, params },
+      message: `[dry run] Would have executed ${tool}`,
+    };
+  }
+
   switch (tool) {
     case "searchCode": {
       const { query } = params as { query: string };

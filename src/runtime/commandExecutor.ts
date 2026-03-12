@@ -28,6 +28,7 @@ const SAFE_COMMAND_PREFIXES = [
   "git ",
   "node ",
   "npx ",
+  "tsc ",
   "ls",
   "pwd",
   "echo ",

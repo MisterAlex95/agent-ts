@@ -56,10 +56,10 @@
 
 ## 7. Safety & guardrails
 
-- [ ] Clearly configure the workspace root and allowed/forbidden directories
-- [ ] Add a `dryRun` mode:
-  - [ ] Simulate `writeFile` / `runCommand` and return plan/diff without side effects
-- [ ] Save backups of files before modification
+- [x] Clearly configure the workspace root and allowed/forbidden directories
+- [x] Add a `dryRun` mode:
+  - [x] Simulate `writeFile` / `runCommand` and return plan/diff without side effects
+- [x] Save backups of files before modification
 
 ## 8. Pre-packaged scenarios
 
@@ -68,3 +68,37 @@
   - [ ] `addEndpoint`: create an Express endpoint + handler + test
   - [ ] `fixTest`: run `npm test`, read errors, locate file, propose a patch
 - [ ] Add example `/tasks` requests for each scenario in the README
+
+## 9. Planner robustness
+
+- [x] Harden planner output parsing:
+  - [x] Retry with “reply with JSON only” when JSON parse fails
+  - [x] Fallback regex to extract `{"tool":..., "params":...}` from raw response
+- [ ] Use structured/grammar output from Ollama for planner if supported
+- [x] Add few-shot examples in planner prompt for when to say DONE vs continue (e.g. don’t DONE if tests weren’t run when user asked, or if a new file was requested but not written)
+
+## 10. Context & memory
+
+- [x] Improve `relevantContext`: keep last N search results or summarize older ones instead of only the latest
+- [x] Summarize older steps in `recentObservations` (e.g. first k-1 steps as one short paragraph, keep last 2–3 in full) to avoid context overflow
+
+## 11. RAG improvements
+
+- [ ] Incremental (or partial) re-index: endpoint or option to index only changed files (e.g. by mtime or hash)
+- [ ] Hybrid search: combine semantic (Qdrant) with keyword match on chunk content for better recall on exact names
+
+## 12. UX & performance
+
+- [ ] CLI progress: stream step-by-step output during `agent run` (e.g. “Step 1: searchCode …”, “Step 2: readFile …”) instead of waiting for the end
+- [ ] Optional streaming of final answer for long runs
+- [x] Global timeout per task (e.g. 5 min) to avoid runaway runs
+
+## 13. Observability & debug
+
+- [x] In verbose mode: log truncated tool output in trace (not only tool + params) for replay/debug
+- [ ] Optional metrics: duration per step, total run time, Ollama call count; expose via `GET /metrics` or structured logs
+
+## 14. Code quality & maintainability
+
+- [ ] E2E tests for agent loop with mocked Ollama + Qdrant (simple task → expected tools or DONE)
+- [x] Move planner and responder prompts to dedicated files or module (e.g. `src/prompts/`) for easier tuning

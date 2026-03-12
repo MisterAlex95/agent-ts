@@ -11,6 +11,8 @@ export interface TaskRequestBody {
   maxSteps?: number;
   goalType?: GoalType;
   verbose?: boolean;
+  dryRun?: boolean;
+  timeoutMs?: number;
 }
 
 // Re-export AgentRunResult to make the HTTP contract explicit.

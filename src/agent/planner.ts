@@ -1,5 +1,11 @@
 import { ollamaChat } from "../llm/ollamaClient.js";
 import type { ToolName } from "./memory.js";
+import {
+  getPlannerSystemPrompt,
+  getPlannerUserPrompt,
+  PLANNER_RETRY_PROMPT,
+  PLANNER_FALLBACK_PROMPT,
+} from "../prompts/planner.js";
 
 export interface PlannedAction {
   tool: ToolName;
@@ -35,7 +41,49 @@ function extractJson(text: string): unknown {
   const trimmed = text.trim();
   const codeBlock = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = codeBlock ? codeBlock[1].trim() : trimmed;
-  return JSON.parse(raw) as unknown;
+
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    const fallback = raw.match(/\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"params"\s*:\s*\{[^}]*\}\s*\}/);
+    if (fallback) {
+      try {
+        return JSON.parse(fallback[0]) as unknown;
+      } catch {
+        // try to fix common issues: trailing comma, single quotes
+        const fixed = fallback[0]
+          .replace(/,(\s*[}\]])/g, "$1")
+          .replace(/'/g, '"');
+        try {
+          return JSON.parse(fixed) as unknown;
+        } catch {
+          return null;
+        }
+      }
+    }
+    const toolMatch = raw.match(/\{\s*"tool"\s*:\s*"([^"]+)"\s*,\s*"params"\s*:\s*\{/);
+    if (toolMatch) {
+      const paramsStart = raw.indexOf('"params":', raw.indexOf(toolMatch[0]));
+      const braceStart = raw.indexOf("{", paramsStart + 1);
+      if (braceStart !== -1) {
+        let depth = 1;
+        let i = braceStart + 1;
+        while (i < raw.length && depth > 0) {
+          if (raw[i] === "{") depth++;
+          else if (raw[i] === "}") depth--;
+          i++;
+        }
+        const paramsStr = raw.slice(braceStart, i);
+        try {
+          const params = JSON.parse(paramsStr) as unknown;
+          return { tool: toolMatch[1], params } as unknown;
+        } catch {
+          return { tool: toolMatch[1], params: {} } as unknown;
+        }
+      }
+    }
+    return null;
+  }
 }
 
 function parsePlannedAction(data: unknown): PlannedAction | null {
@@ -125,55 +173,34 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
 export async function planNextAction(
   ctx: PlanningContext,
 ): Promise<PlannedAction | null> {
-  const systemPrompt = `You are a coding agent. Given a user task, its goal type, and the results of previous tool calls, you must choose the NEXT single tool to run, or respond with DONE if the task is complete or no further action is useful.
+  const toolsList = Object.entries(TOOLS)
+    .map(([name, { params }]) => `- ${name}: ${params}`)
+    .join("\n");
+  const systemPrompt = getPlannerSystemPrompt(toolsList);
+  const userPrompt = getPlannerUserPrompt(ctx);
 
-Think in terms of a short multi-step plan (2-5 tool calls), but only OUTPUT the very next tool to run.
+  const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ];
 
-Search: Use searchSymbols when the task is about finding a specific function, class, or API endpoint by name or purpose. Use searchCode for general code context or arbitrary snippets.
-
-Goal types:
-- generic: best-effort coding help; stop when you have gathered enough information or made the main change.
-- runTestsAndFix: run tests first; if they fail, inspect errors and files to fix them; stop when tests pass or you are blocked.
-- addEndpoint: add or modify an API endpoint, plus any minimal tests or wiring needed.
-- improveTypes: improve TypeScript types in the relevant code.
-
-Available tools and their params (respond with JSON only):
-${Object.entries(TOOLS)
-  .map(([name, { params }]) => `- ${name}: ${params}`)
-  .join("\n")}
-
-Respond with exactly one JSON object, no other text. Examples:
-{"tool":"searchCode","params":{"query":"where is the main entry point"}}
-{"tool":"listFiles","params":{"path":"."}}
-{"tool":"readFile","params":{"path":"src/index.ts"}}
-{"tool":"DONE","params":{}}
-`;
-
-  const userPrompt = `Task: ${ctx.task}
-Goal type: ${ctx.goalType}
-
-Relevant code context (from semantic search):
-${ctx.relevantContext || "(none yet)"}
-
-Previous tool results (most recent first):
-${ctx.recentObservations || "(none yet)"}
-
-When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
-
-What is the next tool to run? Reply with a single JSON object: {"tool":"...","params":{...}} or {"tool":"DONE","params":{}}.`;
-
-  try {
-    const { content } = await ollamaChat(
-      [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      { temperature: 0.1 },
-    );
-
-    const data = extractJson(content);
-    return parsePlannedAction(data);
-  } catch {
-    return null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const { content } = await ollamaChat(messages, { temperature: 0.1 });
+      const data = extractJson(content);
+      const parsed = parsePlannedAction(data);
+      if (parsed) return parsed;
+      if (attempt === 0) {
+        messages.push({
+          role: "assistant",
+          content: typeof content === "string" ? content.slice(0, 500) : "",
+        });
+        messages.push({ role: "user", content: PLANNER_RETRY_PROMPT });
+      }
+    } catch {
+      if (attempt === 1) return null;
+      messages.push({ role: "user", content: PLANNER_FALLBACK_PROMPT });
+    }
   }
+  return null;
 }

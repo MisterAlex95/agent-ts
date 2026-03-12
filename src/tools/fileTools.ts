@@ -3,7 +3,9 @@ import {
   listWorkspaceFiles,
   readWorkspaceFile,
   writeWorkspaceFile,
+  backupFileIfExists,
 } from "../runtime/workspaceManager.js";
+import { getForbiddenDirNames } from "../config/workspace.js";
 import path from "node:path";
 
 export interface ListFilesResult {
@@ -52,7 +54,10 @@ const PROTECTED_PATH_PATTERNS: RegExp[] = [
 
 function isProtectedPath(pathRelative: string): boolean {
   const normalized = pathRelative.replace(/\\/g, "/");
-  return PROTECTED_PATH_PATTERNS.some((re) => re.test(normalized));
+  if (PROTECTED_PATH_PATTERNS.some((re) => re.test(normalized))) return true;
+  const parts = normalized.split("/").map((p) => p.toLowerCase());
+  const forbidden = getForbiddenDirNames();
+  return parts.some((p) => forbidden.has(p));
 }
 
 export async function listFilesTool(
@@ -88,6 +93,7 @@ export async function writeFileTool(
     previousContent = undefined;
   }
 
+  await backupFileIfExists(pathRelative);
   await writeWorkspaceFile(pathRelative, content);
 
   const normalized = pathRelative.replace(/\\/g, "/");
@@ -116,6 +122,7 @@ export async function appendFileTool(
   }
 
   const updated = previousContent + content;
+  await backupFileIfExists(pathRelative);
   await writeWorkspaceFile(pathRelative, updated);
 
   return {
@@ -151,6 +158,7 @@ export async function patchFileTool(
   }
 
   if (applied > 0 && updated !== original) {
+    await backupFileIfExists(pathRelative);
     await writeWorkspaceFile(pathRelative, updated);
   }
 

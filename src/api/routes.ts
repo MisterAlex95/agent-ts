@@ -10,7 +10,7 @@ export function registerRoutes(app: Express): void {
 
   app.post("/tasks", async (req: Request, res: Response) => {
     try {
-      const { task, maxSteps, goalType, verbose } = req.body as Partial<TaskRequestBody>;
+      const { task, maxSteps, goalType, verbose, dryRun, timeoutMs } = req.body as Partial<TaskRequestBody>;
       if (!task || typeof task !== "string") {
         res.status(400).json({ error: "Missing or invalid 'task' in body" });
         return;
@@ -19,6 +19,8 @@ export function registerRoutes(app: Express): void {
         maxSteps,
         goalType,
         verbose,
+        dryRun,
+        timeoutMs,
       });
       res.json(result);
     } catch (err) {
