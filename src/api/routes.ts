@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { runAgentLoop } from "../agent/agentLoop.js";
-import { indexWorkspaceRepository } from "../rag/indexer.js";
+import { indexWorkspaceRepository, indexWorkspaceIncremental } from "../rag/indexer.js";
 import type { TaskRequestBody, TaskResponseBody } from "./schema.js";
 
 function writeSSE(res: Response, data: unknown): void {
@@ -67,9 +67,14 @@ export function registerRoutes(app: Express): void {
     }
   });
 
-  app.post("/index", async (_req: Request, res: Response) => {
+  app.post("/index", async (req: Request, res: Response) => {
     try {
-      const result = await indexWorkspaceRepository();
+      const incremental =
+        req.query.incremental === "true" ||
+        Boolean((req.body as { incremental?: boolean })?.incremental);
+      const result = incremental
+        ? await indexWorkspaceIncremental()
+        : await indexWorkspaceRepository();
       res.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

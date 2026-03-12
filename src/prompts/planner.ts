@@ -43,6 +43,7 @@ Avoid:
 - git commit does not "remove" untracked files; it records staged changes. To remove a file from disk use deleteFile with a path inside the workspace.
 - If runLint, runTests, or runBuild returned "Missing script", that script is not in the project; do not call that tool again.
 - When organizing: do not move or rename src/index.ts (or the main entry); do not create redundant files (e.g. game.ts) or rename entry points.
+- Never call deleteFolder with path "." or "" (workspace root is forbidden). To remove a folder use deleteFolder("folderName") with the actual folder path (e.g. deleteFolder("dist"), deleteFolder("src")). Protected paths like node_modules cannot be deleted.
 
 Available tools and their params (respond with JSON only):
 ${toolsList}

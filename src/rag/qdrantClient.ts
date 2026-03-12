@@ -85,6 +85,45 @@ export async function deletePointsByFilter(filter: unknown): Promise<void> {
   }
 }
 
+export interface QdrantScrollResult {
+  points: Array<{ id: string; payload?: Record<string, unknown> }>;
+  nextPageOffset: string | number | null;
+}
+
+export async function scrollPoints(
+  limit: number,
+  offset?: string | number | null,
+): Promise<QdrantScrollResult> {
+  try {
+    const res = await qdrantRequest<{
+      result: {
+        points: Array<{ id: string; payload?: Record<string, unknown> }>;
+        next_page_offset: string | number | null;
+      };
+    }>(`/collections/${QDRANT_COLLECTION}/points/scroll`, {
+      method: "POST",
+      body: JSON.stringify({
+        limit,
+        offset: offset ?? null,
+        with_payload: true,
+        with_vector: false,
+      }),
+    });
+
+    const r = res.result ?? { points: [], next_page_offset: null };
+    return {
+      points: r.points,
+      nextPageOffset: r.next_page_offset ?? null,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("doesn't exist")) {
+      return { points: [], nextPageOffset: null };
+    }
+    throw err;
+  }
+}
+
 export async function searchPoints(
   vector: number[],
   limit: number,

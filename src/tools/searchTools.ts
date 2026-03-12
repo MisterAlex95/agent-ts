@@ -1,5 +1,5 @@
 import {
-  semanticSearch,
+  hybridSearch,
   semanticSearchSymbols,
   SemanticSearchResult,
 } from "../rag/search.js";
@@ -12,7 +12,7 @@ export interface SearchCodeResult {
 export async function searchCodeTool(
   query: string,
 ): Promise<SearchCodeResult> {
-  const results = await semanticSearch(query);
+  const results = await hybridSearch(query);
   return { query, results };
 }
 

@@ -5,6 +5,8 @@ import {
   writeWorkspaceFile,
   backupFileIfExists,
   deleteWorkspaceFile,
+  deleteWorkspaceFiles,
+  deleteWorkspaceFolder,
   moveWorkspaceFile,
   copyWorkspaceFile,
   workspaceFileExists,
@@ -267,6 +269,45 @@ export async function deleteFileTool(
   }
   await deleteWorkspaceFile(pathRelative);
   return { path: pathRelative.replace(/\\/g, "/"), deleted: true };
+}
+
+export interface DeleteFilesResult {
+  deleted: string[];
+  errors?: string[];
+}
+
+export async function deleteFilesTool(
+  paths: string[],
+): Promise<DeleteFilesResult> {
+  const normalized = paths.map((p) => p.replace(/\\/g, "/")).filter(Boolean);
+  for (const p of normalized) {
+    if (isProtectedPath(p)) {
+      throw new Error(`deleteFilesTool: cannot delete protected path '${p}'`);
+    }
+  }
+  await deleteWorkspaceFiles(normalized);
+  return { deleted: normalized };
+}
+
+export interface DeleteFolderResult {
+  path: string;
+  deletedFiles: string[];
+}
+
+export async function deleteFolderTool(
+  pathRelative: string,
+): Promise<DeleteFolderResult> {
+  const normalized = pathRelative.replace(/\\/g, "/").trim();
+  if (!normalized || normalized === "." || normalized === "..") {
+    throw new Error("deleteFolderTool: cannot delete root or parent");
+  }
+  if (isProtectedPath(normalized)) {
+    throw new Error(`deleteFolderTool: cannot delete protected path '${normalized}'`);
+  }
+  const filesInside = await listWorkspaceFiles(normalized);
+  const toRemove = filesInside.filter((f) => !isProtectedPath(f));
+  await deleteWorkspaceFolder(normalized);
+  return { path: normalized, deletedFiles: toRemove };
 }
 
 export async function moveFileTool(

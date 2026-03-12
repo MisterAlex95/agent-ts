@@ -5,6 +5,8 @@ export type ToolName =
   | "writeFile"
   | "editLines"
   | "deleteFile"
+  | "deleteFiles"
+  | "deleteFolder"
   | "moveFile"
   | "copyFile"
   | "listFiles"

@@ -199,7 +199,7 @@ export async function runAgentLoop(
     onStep?.({ step: steps, tool, params, result: truncateForTrace(result) });
 
     if (!dryRun && mode === "Agent") {
-      triggerAutoIndex(tool, params);
+      triggerAutoIndex(tool, params, result);
     }
   }
 
@@ -233,11 +233,14 @@ function truncateForTrace(output: unknown): string {
   return s.length <= TRACE_OUTPUT_MAX ? s : s.slice(0, TRACE_OUTPUT_MAX) + "...";
 }
 
-function triggerAutoIndex(tool: string, params: unknown): void {
+function triggerAutoIndex(tool: string, params: unknown, result?: unknown): void {
   const p = params as Record<string, unknown>;
   const path = typeof p?.path === "string" ? p.path : "";
+  const paths = Array.isArray(p?.paths) ? (p.paths as string[]) : [];
   const from = typeof p?.from === "string" ? p.from : "";
   const to = typeof p?.to === "string" ? p.to : "";
+  const res = result as Record<string, unknown> | undefined;
+  const deletedFiles = Array.isArray(res?.deletedFiles) ? (res.deletedFiles as string[]) : [];
 
   void (async () => {
     try {
@@ -245,6 +248,10 @@ function triggerAutoIndex(tool: string, params: unknown): void {
         if (path) await indexWorkspaceFiles([path]);
       } else if (tool === "deleteFile") {
         if (path) await removeFileFromIndex(path);
+      } else if (tool === "deleteFiles") {
+        for (const f of paths) if (f) await removeFileFromIndex(f);
+      } else if (tool === "deleteFolder") {
+        for (const f of deletedFiles) if (f) await removeFileFromIndex(f);
       } else if (tool === "moveFile") {
         if (from) await removeFileFromIndex(from);
         if (to) await indexWorkspaceFiles([to]);

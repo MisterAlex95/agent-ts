@@ -47,6 +47,8 @@ const TOOLS: Record<string, { params: string }> = {
   writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
   editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; content must be indented, multiple lines)" },
   deleteFile: { params: "path: string (relative path; protected paths forbidden)" },
+  deleteFiles: { params: "paths: string[] (relative paths; protected forbidden)" },
+  deleteFolder: { params: "path: string (relative dir; deletes contents recursively; protected forbidden)" },
   moveFile: { params: "from: string, to: string (relative paths)" },
   copyFile: { params: "from: string, to: string (relative paths)" },
   grep: { params: "path?: string (dir or file), pattern: string (regex), caseInsensitive?: boolean, maxMatches?: number" },
@@ -135,6 +137,8 @@ function parsePlannedAction(
       "writeFile",
       "editLines",
       "deleteFile",
+      "deleteFiles",
+      "deleteFolder",
       "moveFile",
       "copyFile",
       "grep",
@@ -195,6 +199,15 @@ function parsePlannedAction(
       }
       break;
     case "deleteFile":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      break;
+    case "deleteFiles":
+      normalized.paths = Array.isArray(paramsObj.paths)
+        ? (paramsObj.paths as unknown[]).filter((p): p is string => typeof p === "string")
+        : [];
+      break;
+    case "deleteFolder":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : "";
       break;
@@ -273,6 +286,8 @@ export async function planNextAction(
         "writeFile",
         "editLines",
         "deleteFile",
+        "deleteFiles",
+        "deleteFolder",
         "moveFile",
         "copyFile",
         "grep",

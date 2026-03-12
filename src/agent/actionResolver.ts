@@ -5,6 +5,8 @@ import {
   listFilesTool,
   editLinesTool,
   deleteFileTool,
+  deleteFilesTool,
+  deleteFolderTool,
   moveFileTool,
   copyFileTool,
   grepTool,
@@ -38,6 +40,8 @@ const DRY_RUN_TOOLS: ToolName[] = [
   "writeFile",
   "editLines",
   "deleteFile",
+  "deleteFiles",
+  "deleteFolder",
   "moveFile",
   "copyFile",
   "runCommand",
@@ -96,6 +100,14 @@ export async function executeTool(
     case "deleteFile": {
       const { path } = params as { path: string };
       return deleteFileTool(path);
+    }
+    case "deleteFiles": {
+      const { paths } = params as { paths: string[] };
+      return deleteFilesTool(Array.isArray(paths) ? paths : []);
+    }
+    case "deleteFolder": {
+      const { path } = params as { path: string };
+      return deleteFolderTool(path);
     }
     case "moveFile": {
       const { from, to } = params as { from: string; to: string };

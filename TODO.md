@@ -84,8 +84,8 @@
 
 ## 11. RAG improvements
 
-- [ ] Incremental (or partial) re-index: endpoint or option to index only changed files (e.g. by mtime or hash)
-- [ ] Hybrid search: combine semantic (Qdrant) with keyword match on chunk content for better recall on exact names
+- [x] Incremental (or partial) re-index: endpoint or option to index only changed files (e.g. by mtime or hash)
+- [x] Hybrid search: combine semantic (Qdrant) with keyword match on chunk content for better recall on exact names
 
 ## 12. UX & performance
 

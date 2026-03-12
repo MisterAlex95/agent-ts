@@ -1,8 +1,46 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import crypto from "node:crypto";
-import { listWorkspaceFiles, readWorkspaceFile } from "../runtime/workspaceManager.js";
+import { getWorkspaceRoot, listWorkspaceFiles, readWorkspaceFile } from "../runtime/workspaceManager.js";
 import { embedTexts } from "./embeddings.js";
 import { ensureCollection, upsertPoints, deletePointsByFilter, QdrantPoint } from "./qdrantClient.js";
+
+const INDEX_STATE_FILENAME = ".agent-index-state.json";
+
+export interface IndexState {
+  files: Record<string, number>;
+}
+
+async function readIndexState(): Promise<IndexState | null> {
+  const statePath = path.join(getWorkspaceRoot(), INDEX_STATE_FILENAME);
+  try {
+    const raw = await fs.readFile(statePath, "utf8");
+    const data = JSON.parse(raw) as IndexState;
+    return data?.files && typeof data.files === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeIndexState(state: IndexState): Promise<void> {
+  const statePath = path.join(getWorkspaceRoot(), INDEX_STATE_FILENAME);
+  await fs.writeFile(statePath, JSON.stringify(state, null, 0), "utf8");
+}
+
+async function getFileMtimes(relativePaths: string[]): Promise<Map<string, number>> {
+  const root = getWorkspaceRoot();
+  const out = new Map<string, number>();
+  for (const rel of relativePaths) {
+    const full = path.join(root, rel.replace(/\//g, path.sep));
+    try {
+      const stat = await fs.stat(full);
+      out.set(rel.replace(/\\/g, "/"), stat.mtimeMs);
+    } catch {
+      // file gone or unreadable
+    }
+  }
+  return out;
+}
 
 const MAX_FILE_BYTES = 500_000;
 const MAX_FILE_LINES = 15_000;
@@ -244,6 +282,7 @@ export async function indexWorkspaceRepository(): Promise<{
   }));
 
   await upsertPoints(points);
+  await writeIndexStateAfterFullIndex();
 
   return {
     indexedFiles: indexedFileCount,
@@ -309,5 +348,81 @@ export async function indexWorkspaceFiles(
 
   const indexedFiles = new Set(allChunks.map((c) => c.metadata.filePath)).size;
   return { indexedFiles, indexedChunks: allChunks.length };
+}
+
+function getCodeFilePaths(files: string[]): string[] {
+  return files.filter((f) => {
+    const normalized = f.replace(/\\/g, "/");
+    const parts = normalized.split("/");
+    return !parts.some((p) => IGNORED_DIRS.has(p));
+  });
+}
+
+export async function indexWorkspaceIncremental(): Promise<{
+  indexedFiles: number;
+  indexedChunks: number;
+  removed: number;
+  unchanged: number;
+}> {
+  const files = await listWorkspaceFiles(".");
+  const codePaths = getCodeFilePaths(files);
+  const mtimes = await getFileMtimes(codePaths);
+  const state = await readIndexState();
+
+  const currentByPath = new Map(mtimes.entries());
+  const prev = state?.files ?? {};
+  const deleted: string[] = [];
+  const changedOrNew: string[] = [];
+
+  for (const p of Object.keys(prev)) {
+    if (!currentByPath.has(p)) deleted.push(p);
+  }
+  for (const p of codePaths) {
+    const norm = p.replace(/\\/g, "/");
+    const mt = currentByPath.get(norm);
+    if (mt == null) continue;
+    const prevMt = prev[norm];
+    if (prevMt !== mt) changedOrNew.push(norm);
+  }
+
+  for (const p of deleted) {
+    await removeFileFromIndex(p);
+  }
+
+  let indexedFiles = 0;
+  let indexedChunks = 0;
+  if (changedOrNew.length > 0) {
+    const result = await indexWorkspaceFiles(changedOrNew);
+    indexedFiles = result.indexedFiles;
+    indexedChunks = result.indexedChunks;
+  }
+
+  const newState: IndexState = {
+    files: {},
+  };
+  for (const p of codePaths) {
+    const norm = p.replace(/\\/g, "/");
+    const mt = currentByPath.get(norm);
+    if (mt != null) newState.files[norm] = mt;
+  }
+  await writeIndexState(newState);
+
+  const unchanged = codePaths.length - changedOrNew.length - deleted.length;
+  return {
+    indexedFiles,
+    indexedChunks,
+    removed: deleted.length,
+    unchanged: unchanged > 0 ? unchanged : 0,
+  };
+}
+
+export async function writeIndexStateAfterFullIndex(): Promise<void> {
+  const files = await listWorkspaceFiles(".");
+  const codePaths = getCodeFilePaths(files);
+  const mtimes = await getFileMtimes(codePaths);
+  const state: IndexState = {
+    files: Object.fromEntries(mtimes.entries()),
+  };
+  await writeIndexState(state);
 }
 

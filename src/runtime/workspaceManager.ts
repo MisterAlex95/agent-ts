@@ -106,6 +106,52 @@ export async function deleteWorkspaceFile(relativePath: string): Promise<void> {
   await fs.unlink(fullPath);
 }
 
+export async function deleteWorkspaceFiles(relativePaths: string[]): Promise<void> {
+  for (const relativePath of relativePaths) {
+    const normalized = normalizeRelativePath(relativePath);
+    const fullPath = path.resolve(ROOT, normalized);
+    if (!isPathWithinWorkspace(ROOT, fullPath)) {
+      throw new Error(`Path escapes workspace: ${relativePath}`);
+    }
+    try {
+      await fs.unlink(fullPath);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT") throw err;
+    }
+  }
+}
+
+export async function deleteWorkspaceFolder(relativePath: string): Promise<void> {
+  const normalized = normalizeRelativePath(relativePath);
+  if (normalized === "." || normalized === "" || normalized === "..") {
+    throw new Error("Cannot delete workspace root or parent");
+  }
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) {
+    throw new Error(`Path escapes workspace: ${relativePath}`);
+  }
+  const parts = normalized.split("/").map((p) => p.toLowerCase());
+  if (parts.some((p) => FORBIDDEN_DIRS.has(p))) {
+    throw new Error(`Cannot delete forbidden directory: ${relativePath}`);
+  }
+
+  async function removeRecursive(dirPath: string): Promise<void> {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        await removeRecursive(full);
+      } else {
+        await fs.unlink(full);
+      }
+    }
+    await fs.rmdir(dirPath);
+  }
+
+  await removeRecursive(fullPath);
+}
+
 export async function moveWorkspaceFile(
   fromRelative: string,
   toRelative: string,
