@@ -11,6 +11,7 @@ export interface PlanningContext {
   task: string;
   recentObservations: string;
   relevantContext: string;
+  goalType: "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
 }
 
 const TOOLS: Record<string, { params: string }> = {
@@ -121,7 +122,15 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
 export async function planNextAction(
   ctx: PlanningContext,
 ): Promise<PlannedAction | null> {
-  const systemPrompt = `You are a coding agent. Given a user task and the results of previous tool calls, you must choose the NEXT single tool to run, or respond with DONE if the task is complete or no further action is useful.
+  const systemPrompt = `You are a coding agent. Given a user task, its goal type, and the results of previous tool calls, you must choose the NEXT single tool to run, or respond with DONE if the task is complete or no further action is useful.
+
+Think in terms of a short multi-step plan (2-5 tool calls), but only OUTPUT the very next tool to run.
+
+Goal types:
+- generic: best-effort coding help; stop when you have gathered enough information or made the main change.
+- runTestsAndFix: run tests first; if they fail, inspect errors and files to fix them; stop when tests pass or you are blocked.
+- addEndpoint: add or modify an API endpoint, plus any minimal tests or wiring needed.
+- improveTypes: improve TypeScript types in the relevant code.
 
 Available tools and their params (respond with JSON only):
 ${Object.entries(TOOLS)
@@ -136,12 +145,15 @@ Respond with exactly one JSON object, no other text. Examples:
 `;
 
   const userPrompt = `Task: ${ctx.task}
+Goal type: ${ctx.goalType}
 
 Relevant code context (from semantic search):
 ${ctx.relevantContext || "(none yet)"}
 
 Previous tool results (most recent first):
 ${ctx.recentObservations || "(none yet)"}
+
+When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
 
 What is the next tool to run? Reply with a single JSON object: {"tool":"...","params":{...}} or {"tool":"DONE","params":{}}.`;
 

@@ -107,11 +107,13 @@ npm test
   ```json
   {
     "task": "What does sample.ts export?",
-    "maxSteps": 5
+    "maxSteps": 5,
+    "goalType": "generic"
   }
   ```
   - **task** (string, required): natural language description of the development task.
   - **maxSteps** (number, optional): maximum number of tool steps for this run (default: 8).
+  - **goalType** (string, optional): high-level intent for the planner. Values: `generic` (default), `runTestsAndFix`, `addEndpoint`, `improveTypes`.
 
 - **Response 200 (JSON)**:
   ```json

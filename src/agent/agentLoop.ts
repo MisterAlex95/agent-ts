@@ -3,9 +3,11 @@ import { planNextAction } from "./planner.js";
 import { executeTool } from "./actionResolver.js";
 import { summarizeRun } from "./responder.js";
 import type { ToolName } from "./memory.js";
+import type { GoalType } from "../api/schema.js";
 
 export interface AgentRunOptions {
   maxSteps?: number;
+  goalType?: GoalType;
 }
 
 export interface AgentRunResult {
@@ -33,6 +35,7 @@ export async function runAgentLoop(
       task,
       recentObservations,
       relevantContext,
+      goalType: options?.goalType ?? "generic",
     });
 
     if (!planned) {

@@ -32,9 +32,9 @@
 
 ## 4. Smarter planner
 
-- [ ] Enrich planner prompt with a notion of mini-plan (likely sequence of actions)
-- [ ] Introduce a `goalType` field in `/tasks` (e.g. `runTestsAndFix`, `addEndpoint`)
-- [ ] Teach planner when to consider the task DONE (tests green, no errors, no more useful actions)
+- [x] Enrich planner prompt with a notion of mini-plan (likely sequence of actions)
+- [x] Introduce a `goalType` field in `/tasks` (e.g. `runTestsAndFix`, `addEndpoint`)
+- [x] Teach planner when to consider the task DONE (tests green, no errors, no more useful actions)
 
 ## 5. More targeted RAG for code
 

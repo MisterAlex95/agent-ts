@@ -10,12 +10,15 @@ export function registerRoutes(app: Express): void {
 
   app.post("/tasks", async (req: Request, res: Response) => {
     try {
-      const { task, maxSteps } = req.body as Partial<TaskRequestBody>;
+      const { task, maxSteps, goalType } = req.body as Partial<TaskRequestBody>;
       if (!task || typeof task !== "string") {
         res.status(400).json({ error: "Missing or invalid 'task' in body" });
         return;
       }
-      const result: TaskResponseBody = await runAgentLoop(task, { maxSteps });
+      const result: TaskResponseBody = await runAgentLoop(task, {
+        maxSteps,
+        goalType,
+      });
       res.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

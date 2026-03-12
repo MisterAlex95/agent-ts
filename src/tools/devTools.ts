@@ -47,7 +47,8 @@ export async function gitCommitTool(message: string): Promise<GitCommitResult> {
 export async function runTestsTool(
   options?: { timeoutMs?: number },
 ): Promise<RunTestsResult> {
-  return runWorkspaceCommand("npm test", {
+  // --run makes Vitest (and similar runners) exit after one run instead of watch mode
+  return runWorkspaceCommand("npm test -- --run", {
     timeoutMs: options?.timeoutMs ?? TESTS_TIMEOUT_MS,
   });
 }

@@ -24,7 +24,17 @@ export function getWorkspaceRoot(): string {
 export async function listWorkspaceFiles(relativeDir = "."): Promise<string[]> {
   const normalized = normalizeRelativePath(relativeDir);
   const base = path.resolve(WORKSPACE_ROOT, normalized);
-  const entries = await fs.readdir(base, { withFileTypes: true });
+  let entries: fs.Dirent[];
+  try {
+    entries = await fs.readdir(base, { withFileTypes: true });
+  } catch (err) {
+    const error = err as NodeJS.ErrnoException;
+    if (error.code === "ENOENT") {
+      // Directory does not exist yet: treat as empty folder.
+      return [];
+    }
+    throw err;
+  }
 
   const files: string[] = [];
   for (const entry of entries) {

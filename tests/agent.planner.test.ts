@@ -17,6 +17,7 @@ describe("planner", () => {
       task: "Add a new API endpoint",
       recentObservations: "",
       relevantContext: "",
+      goalType: "generic",
     });
 
     expect(action).not.toBeNull();
@@ -33,6 +34,7 @@ describe("planner", () => {
       task: "Anything",
       recentObservations: "already did something",
       relevantContext: "",
+      goalType: "generic",
     });
 
     expect(action).toBeNull();
@@ -47,6 +49,7 @@ describe("planner", () => {
       task: "List files",
       recentObservations: "",
       relevantContext: "",
+      goalType: "generic",
     });
 
     expect(action?.tool).toBe("listFiles");
