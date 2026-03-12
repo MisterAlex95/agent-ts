@@ -38,21 +38,21 @@
 
 ## 5. More targeted RAG for code
 
-- [ ] During indexing:
-  - [ ] Extract symbols (functions, classes, endpoints) and store in metadata (`symbol`, `kind`)
-  - [ ] Filter files better (ignore binaries, build outputs, large JSON)
-- [ ] Add search tools:
-  - [ ] `searchSymbols(query)` to retrieve relevant symbols directly
-  - [ ] Make planner choose between `searchSymbols` and `searchCode` depending on the task
+- [x] During indexing:
+  - [x] Extract symbols (functions, classes, endpoints) and store in metadata (`symbol`, `kind`)
+  - [x] Filter files better (ignore binaries, build outputs, large JSON)
+- [x] Add search tools:
+  - [x] `searchSymbols(query)` to retrieve relevant symbols directly
+  - [x] Make planner choose between `searchSymbols` and `searchCode` depending on the task
 
 ## 6. UX (CLI & logs)
 
-- [ ] Create a small CLI (`agent`) that wraps the HTTP API:
-  - [ ] `agent index`
-  - [ ] `agent run "Refactor X into Y"`
-- [ ] Improve logs:
-  - [ ] Structured trace (timestamp, tool, key params, errors)
-  - [ ] `verbose` option in `/tasks` to control detail level
+- [x] Create a small CLI (`agent`) that wraps the HTTP API:
+  - [x] `agent index`
+  - [x] `agent run "Refactor X into Y"`
+- [x] Improve logs:
+  - [x] Structured trace (timestamp, tool, key params, errors)
+  - [x] `verbose` option in `/tasks` to control detail level
 
 ## 7. Safety & guardrails
 

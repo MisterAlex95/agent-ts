@@ -1,4 +1,4 @@
-import { searchCodeTool } from "../tools/searchTools.js";
+import { searchCodeTool, searchSymbolsTool } from "../tools/searchTools.js";
 import { readFileTool, writeFileTool, listFilesTool } from "../tools/fileTools.js";
 import { runCommandTool } from "../tools/commandTools.js";
 import {
@@ -22,6 +22,10 @@ export async function executeTool(
     case "searchCode": {
       const { query } = params as { query: string };
       return searchCodeTool(query);
+    }
+    case "searchSymbols": {
+      const { query } = params as { query: string };
+      return searchSymbolsTool(query);
     }
     case "readFile": {
       const { path } = params as { path: string };

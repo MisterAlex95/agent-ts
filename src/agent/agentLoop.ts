@@ -8,6 +8,14 @@ import type { GoalType } from "../api/schema.js";
 export interface AgentRunOptions {
   maxSteps?: number;
   goalType?: GoalType;
+  verbose?: boolean;
+}
+
+export interface TraceEntry {
+  timestamp: string;
+  tool: string;
+  params?: unknown;
+  error?: string;
 }
 
 export interface AgentRunResult {
@@ -15,6 +23,7 @@ export interface AgentRunResult {
   steps: number;
   memory: ReturnType<AgentMemory["snapshot"]>;
   answer: string | null;
+  trace?: TraceEntry[];
 }
 
 export async function runAgentLoop(
@@ -22,7 +31,9 @@ export async function runAgentLoop(
   options?: AgentRunOptions,
 ): Promise<AgentRunResult> {
   const maxSteps = options?.maxSteps ?? 8;
+  const verbose = options?.verbose ?? false;
   const memory = new AgentMemory(task);
+  const trace: TraceEntry[] = [];
 
   let steps = 0;
   const observationSummaries: string[] = [];
@@ -44,7 +55,37 @@ export async function runAgentLoop(
 
     const { tool, params } = planned;
 
-    const result = await executeTool(tool as ToolName, params);
+    let result: unknown;
+    try {
+      result = await executeTool(tool as ToolName, params);
+      if (verbose) {
+        trace.push({
+          timestamp: new Date().toISOString(),
+          tool,
+          params,
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (verbose) {
+        trace.push({
+          timestamp: new Date().toISOString(),
+          tool,
+          params,
+          error: errorMessage,
+        });
+      }
+      memory.recordObservation({
+        tool,
+        input: params,
+        output: { error: errorMessage },
+      });
+      observationSummaries.push(
+        `Tool: ${tool}\nInput: ${JSON.stringify(params)}\nError: ${errorMessage}`,
+      );
+      steps += 1;
+      continue;
+    }
 
     memory.recordObservation({
       tool,
@@ -53,15 +94,23 @@ export async function runAgentLoop(
     });
 
     const outStr = JSON.stringify(result);
-    if (tool === "searchCode" && typeof result === "object" && result !== null) {
-      const searchResult = result as { results?: Array<{ filePath?: string; content?: string }> };
+    if (
+      (tool === "searchCode" || tool === "searchSymbols") &&
+      typeof result === "object" &&
+      result !== null
+    ) {
+      const searchResult = result as {
+        results?: Array<{ filePath?: string; content?: string; symbol?: string }>;
+      };
       const results = searchResult.results ?? [];
       relevantContext = results
         .slice(0, 8)
-        .map(
-          (r) =>
-            `[${r.filePath ?? "?"}]\n${String(r.content ?? "").slice(0, 500)}`,
-        )
+        .map((r) => {
+          const header = r.symbol
+            ? `[${r.filePath ?? "?"}] symbol: ${r.symbol}\n`
+            : `[${r.filePath ?? "?"}]\n`;
+          return header + String(r.content ?? "").slice(0, 500);
+        })
         .join("\n\n");
     }
 
@@ -84,6 +133,7 @@ export async function runAgentLoop(
     steps,
     memory: snapshot,
     answer,
+    ...(verbose && trace.length > 0 ? { trace } : {}),
   };
 }
 

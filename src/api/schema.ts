@@ -10,6 +10,7 @@ export interface TaskRequestBody {
   task: string;
   maxSteps?: number;
   goalType?: GoalType;
+  verbose?: boolean;
 }
 
 // Re-export AgentRunResult to make the HTTP contract explicit.

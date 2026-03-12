@@ -15,7 +15,8 @@ export interface PlanningContext {
 }
 
 const TOOLS: Record<string, { params: string }> = {
-  searchCode: { params: "query: string" },
+  searchCode: { params: "query: string (general code context)" },
+  searchSymbols: { params: "query: string (function/class/endpoint name or purpose)" },
   listFiles: { params: "path: string (e.g. \".\" or \"src\")" },
   readFile: { params: "path: string (relative path)" },
   writeFile: { params: "path: string, content: string" },
@@ -47,6 +48,7 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
 
   const validTools: ToolName[] = [
     "searchCode",
+    "searchSymbols",
     "listFiles",
     "readFile",
     "writeFile",
@@ -72,6 +74,7 @@ function parsePlannedAction(data: unknown): PlannedAction | null {
   const normalized: Record<string, unknown> = {};
   switch (tool) {
     case "searchCode":
+    case "searchSymbols":
       normalized.query =
         typeof paramsObj.query === "string" ? paramsObj.query : "";
       break;
@@ -125,6 +128,8 @@ export async function planNextAction(
   const systemPrompt = `You are a coding agent. Given a user task, its goal type, and the results of previous tool calls, you must choose the NEXT single tool to run, or respond with DONE if the task is complete or no further action is useful.
 
 Think in terms of a short multi-step plan (2-5 tool calls), but only OUTPUT the very next tool to run.
+
+Search: Use searchSymbols when the task is about finding a specific function, class, or API endpoint by name or purpose. Use searchCode for general code context or arbitrary snippets.
 
 Goal types:
 - generic: best-effort coding help; stop when you have gathered enough information or made the main change.

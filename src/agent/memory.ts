@@ -1,5 +1,6 @@
 export type ToolName =
   | "searchCode"
+  | "searchSymbols"
   | "readFile"
   | "writeFile"
   | "listFiles"
