@@ -119,6 +119,28 @@ export async function workspaceFileExists(relativePath: string): Promise<boolean
   }
 }
 
+export async function statWorkspacePath(relativePath: string): Promise<{
+  isFile: boolean;
+  isDirectory: boolean;
+}> {
+  const normalized = normalizeRelativePath(relativePath);
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) {
+    throw new Error(`Path escapes workspace: ${relativePath}`);
+  }
+  try {
+    const stat = await fs.stat(fullPath);
+    return {
+      isFile: stat.isFile(),
+      isDirectory: stat.isDirectory(),
+    };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") throw new Error(`Path does not exist: ${relativePath}`);
+    throw err;
+  }
+}
+
 export async function writeWorkspaceFile(
   relativePath: string,
   content: string,

@@ -250,8 +250,11 @@ function triggerAutoIndex(tool: string, params: unknown, result?: unknown): void
         if (path) await removeFileFromIndex(path);
       } else if (tool === "deleteFiles") {
         for (const f of paths) if (f) await removeFileFromIndex(f);
-      } else if (tool === "deleteFolder") {
-        for (const f of deletedFiles) if (f) await removeFileFromIndex(f);
+      } else if (tool === "deleteFolder" || tool === "deletePath") {
+        const files = tool === "deletePath" && res?.type === "file"
+          ? [path]
+          : deletedFiles;
+        for (const f of files) if (f) await removeFileFromIndex(f);
       } else if (tool === "moveFile") {
         if (from) await removeFileFromIndex(from);
         if (to) await indexWorkspaceFiles([to]);

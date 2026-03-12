@@ -42,8 +42,9 @@ Avoid:
 - Paths are relative to the workspace root only. You cannot delete or read files outside it (e.g. ../ is invalid). If you got "Path escapes workspace", do not retry with a similar path.
 - git commit does not "remove" untracked files; it records staged changes. To remove a file from disk use deleteFile with a path inside the workspace.
 - If runLint, runTests, or runBuild returned "Missing script", that script is not in the project; do not call that tool again.
+- If runCommand returned "rejected by whitelist" or "Command rejected", do not retry the same command; try a different approach. To run a command in a subdirectory use the cwd param (e.g. runCommand with params {\"command\":\"npm install\",\"cwd\":\"react-ts\"}), not \"cd x && command\".
 - When organizing: do not move or rename src/index.ts (or the main entry); do not create redundant files (e.g. game.ts) or rename entry points.
-- Never call deleteFolder with path "." or "" (workspace root is forbidden). To remove a folder use deleteFolder("folderName") with the actual folder path (e.g. deleteFolder("dist"), deleteFolder("src"), deleteFolder("node_modules")). Only .git cannot be deleted.
+- Never call deleteFolder with path "." or "" (workspace root is forbidden). To remove a folder use deleteFolder with the folder path. Only .git cannot be deleted. For directories use deleteFolder, not deleteFile; do not use runCommand to remove directories.
 
 Available tools and their params (respond with JSON only):
 ${toolsList}

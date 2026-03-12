@@ -46,9 +46,10 @@ const TOOLS: Record<string, { params: string }> = {
   readFile: { params: "path: string (relative path)" },
   writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
   editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; content must be indented, multiple lines)" },
-  deleteFile: { params: "path: string (relative path; protected paths forbidden)" },
-  deleteFiles: { params: "paths: string[] (relative paths; protected forbidden)" },
-  deleteFolder: { params: "path: string (relative dir; deletes contents recursively; protected forbidden)" },
+  deleteFile: { params: "path: string (single file only; for directories use deleteFolder)" },
+  deleteFiles: { params: "paths: string[] (file paths only; for directories use deleteFolder)" },
+  deleteFolder: { params: "path: string (directory path; deletes it and contents recursively)" },
+  deletePath: { params: "path: string (file or directory; deletes recursively if directory)" },
   moveFile: { params: "from: string, to: string (relative paths)" },
   copyFile: { params: "from: string, to: string (relative paths)" },
   grep: { params: "path?: string (dir or file), pattern: string (regex), caseInsensitive?: boolean, maxMatches?: number" },
@@ -56,7 +57,7 @@ const TOOLS: Record<string, { params: string }> = {
   fileExists: { params: "path: string (relative path)" },
   wc: { params: "path: string (file path; returns lines, words, bytes)" },
   referencedBy: { params: "path: string (file path; returns which files reference it, e.g. imports)" },
-  runCommand: { params: "command: string" },
+  runCommand: { params: "command: string, cwd?: string (optional subdir to run in, e.g. \"react-ts\")" },
   gitStatus: { params: "none" },
   gitDiff: { params: "path?: string, staged?: boolean" },
   gitLog: { params: "maxCount?: number, path?: string" },
@@ -139,6 +140,7 @@ function parsePlannedAction(
       "deleteFile",
       "deleteFiles",
       "deleteFolder",
+      "deletePath",
       "moveFile",
       "copyFile",
       "grep",
@@ -208,6 +210,7 @@ function parsePlannedAction(
         : [];
       break;
     case "deleteFolder":
+    case "deletePath":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : "";
       break;
@@ -242,6 +245,7 @@ function parsePlannedAction(
     case "runCommand":
       normalized.command =
         typeof paramsObj.command === "string" ? paramsObj.command : "";
+      if (typeof paramsObj.cwd === "string") normalized.cwd = paramsObj.cwd;
       break;
     case "gitStatus":
     case "runTests":
@@ -288,6 +292,7 @@ export async function planNextAction(
         "deleteFile",
         "deleteFiles",
         "deleteFolder",
+        "deletePath",
         "moveFile",
         "copyFile",
         "grep",

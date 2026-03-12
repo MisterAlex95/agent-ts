@@ -3,6 +3,7 @@ import {
   listWorkspaceFiles,
   listWorkspaceDirectEntries,
   readWorkspaceFile,
+  statWorkspacePath,
   writeWorkspaceFile,
   backupFileIfExists,
   deleteWorkspaceFile,
@@ -272,9 +273,21 @@ export async function deleteFileTool(
   pathRelative: string,
 ): Promise<DeleteFileResult> {
   if (isProtectedPath(pathRelative)) {
-    throw new Error(`deleteFileTool: cannot delete protected path '${pathRelative}'`);
+    throw new Error(
+      "deleteFileTool: cannot delete protected path. For directories use deleteFolder, not deleteFile.",
+    );
   }
-  await deleteWorkspaceFile(pathRelative);
+  try {
+    await deleteWorkspaceFile(pathRelative);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "EISDIR") {
+      throw new Error(
+        "deleteFileTool: path is a directory. Use deleteFolder for directories, not deleteFile.",
+      );
+    }
+    throw err;
+  }
   return { path: pathRelative.replace(/\\/g, "/"), deleted: true };
 }
 
@@ -320,6 +333,40 @@ export async function deleteFolderTool(
   const toRemove = filesInside.filter((f) => !isProtectedPath(f));
   await deleteWorkspaceFolder(normalized);
   return { path: normalized, deletedFiles: toRemove };
+}
+
+export interface DeletePathResult {
+  path: string;
+  deleted: true;
+  type: "file" | "directory";
+  deletedFiles?: string[];
+}
+
+export async function deletePathTool(
+  pathRelative: string,
+): Promise<DeletePathResult> {
+  const normalized = pathRelative.replace(/\\/g, "/").trim();
+  if (!normalized || normalized === "." || normalized === "..") {
+    throw new Error("deletePathTool: cannot delete root or parent");
+  }
+  if (isGitPath(normalized)) {
+    throw new Error("deletePathTool: cannot delete .git directory");
+  }
+  const stat = await statWorkspacePath(normalized);
+  if (stat.isFile) {
+    if (isProtectedPath(normalized)) {
+      throw new Error("deletePathTool: cannot delete protected path");
+    }
+    await deleteWorkspaceFile(normalized);
+    return { path: normalized, deleted: true, type: "file" };
+  }
+  if (stat.isDirectory) {
+    const filesInside = await listWorkspaceFiles(normalized);
+    const toRemove = filesInside.filter((f) => !isProtectedPath(f));
+    await deleteWorkspaceFolder(normalized);
+    return { path: normalized, deleted: true, type: "directory", deletedFiles: toRemove };
+  }
+  throw new Error("deletePathTool: path is neither a file nor a directory");
 }
 
 export async function moveFileTool(

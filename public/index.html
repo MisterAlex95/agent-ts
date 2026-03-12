@@ -10,6 +10,7 @@
   <style>
     :root {
       --bg: #0a0c0f;
+      --bg-gradient: linear-gradient(160deg, #0a0c0f 0%, #0d1117 100%);
       --surface: #13161b;
       --surface-hover: #181c22;
       --border: #252b33;
@@ -17,6 +18,7 @@
       --muted: #7d8590;
       --accent: #539bf5;
       --accent-dim: #539bf522;
+      --accent-glow: #539bf533;
       --success: #3fb950;
       --success-dim: #3fb95022;
       --danger: #f85149;
@@ -24,12 +26,14 @@
       --warn: #d29922;
       --radius: 12px;
       --radius-sm: 8px;
+      --transition: 0.2s ease;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
       background: var(--bg);
+      background: var(--bg-gradient);
       color: var(--text);
       font-family: "Outfit", sans-serif;
       font-size: 15px;
@@ -81,8 +85,9 @@
       border-radius: var(--radius);
       padding: 1.25rem 1.4rem;
       margin-bottom: 1rem;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color var(--transition), box-shadow var(--transition);
     }
+    .card:hover { border-color: #2d333b; }
     .card:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
     label {
       display: block;
@@ -120,6 +125,7 @@
       align-items: flex-end;
       margin-top: 1rem;
     }
+    .row-actions { margin-top: 0.75rem; }
     .field { flex: 0 0 auto; }
     .field input, .field select {
       padding: 0.5rem 0.75rem;
@@ -168,8 +174,12 @@
     .btn-primary {
       background: var(--accent);
       color: var(--bg);
+      box-shadow: 0 0 0 0 var(--accent-glow);
     }
-    .btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.12);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
     .btn-primary:disabled {
       opacity: 0.65;
       cursor: not-allowed;
@@ -378,9 +388,124 @@
     .step-tool { color: var(--text); font-weight: 500; }
     .step-params { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .step-item.error .step-tool { color: var(--danger); }
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .toast {
+      padding: 0.6rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      font-weight: 500;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: toastIn 0.25s ease;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .toast.success { border-color: var(--success); background: var(--success-dim); color: var(--success); }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .options-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      color: var(--muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+      border: none;
+      background: none;
+      font-family: inherit;
+    }
+    .options-toggle:hover { color: var(--text); }
+    .options-toggle .chevron {
+      font-size: 0.7rem;
+      transition: transform var(--transition);
+    }
+    .options-toggle.expanded .chevron { transform: rotate(90deg); }
+    .options-panel {
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+    }
+    .options-panel.collapsed {
+      max-height: 0;
+      opacity: 0;
+      margin-top: 0;
+    }
+    .options-panel:not(.collapsed) { max-height: 420px; }
+    .task-history {
+      margin-top: 0.5rem;
+    }
+    .task-history summary {
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      list-style: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .task-history summary::-webkit-details-marker { display: none; }
+    .task-history summary::before { content: "▾ "; font-size: 0.65rem; }
+    .task-history ul {
+      margin: 0.35rem 0 0 0;
+      padding-left: 1rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    .task-history li {
+      margin-bottom: 0.25rem;
+      cursor: pointer;
+      padding: 0.25rem 0;
+      border-radius: 4px;
+      padding-left: 0.5rem;
+      margin-left: -0.5rem;
+    }
+    .task-history li:hover {
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .saved-badge {
+      font-size: 0.72rem;
+      color: var(--success);
+      margin-left: 0.5rem;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .saved-badge.visible { opacity: 1; }
+    .kbd-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .kbd-hint kbd {
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+    }
   </style>
 </head>
 <body>
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
   <div class="layout">
     <header class="header">
       <h1>Agent</h1>
@@ -390,42 +515,56 @@
     <div class="card">
       <label for="task">Task</label>
       <textarea id="task" placeholder="e.g. Create a TypeScript file in the workspace that exports a hello() function" autofocus></textarea>
-      <p class="hint">Ctrl+Enter to run</p>
-      <div class="row">
-        <div class="field">
-          <label for="mode">Mode</label>
-          <select id="mode">
-            <option value="Agent">Agent</option>
-            <option value="Plan">Plan</option>
-            <option value="Ask">Ask</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="maxSteps">Max steps</label>
-          <input type="number" id="maxSteps" value="12" min="1" max="50" />
-        </div>
-        <div class="field">
-          <label for="goalType">Goal type</label>
-          <select id="goalType">
-            <option value="auto" selected>auto</option>
-            <option value="generic">generic</option>
-            <option value="runTestsAndFix">runTestsAndFix</option>
-            <option value="addEndpoint">addEndpoint</option>
-            <option value="improveTypes">improveTypes</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="timeoutMs">Timeout (s)</label>
-          <input type="number" id="timeoutMs" placeholder="300" min="10" title="Leave empty for default 300s" />
-        </div>
-        <div class="checkboxes">
-          <label><input type="checkbox" id="liveProgress" checked /> Live progress</label>
-          <label><input type="checkbox" id="verbose" /> Verbose</label>
-          <label><input type="checkbox" id="dryRun" /> Dry run</label>
-        </div>
+      <p class="hint">
+        <span class="kbd-hint"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run</span>
+        <span class="saved-badge" id="savedBadge">Saved</span>
+      </p>
+      <details class="task-history" id="taskHistory">
+        <summary>Recent tasks</summary>
+        <ul id="taskHistoryList"></ul>
+      </details>
+      <div class="row row-actions">
         <button type="button" class="btn btn-primary" id="runBtn">Run</button>
         <button type="button" class="btn btn-ghost" id="newConvBtn">New conversation</button>
         <span class="hint" id="historyHint" hidden aria-live="polite"></span>
+      </div>
+      <button type="button" class="options-toggle" id="optionsToggle" aria-expanded="false">
+        <span class="chevron">▶</span> Options
+      </button>
+      <div class="options-panel collapsed" id="optionsPanel">
+        <div class="row">
+          <div class="field">
+            <label for="mode">Mode</label>
+            <select id="mode">
+              <option value="Agent">Agent</option>
+              <option value="Plan">Plan</option>
+              <option value="Ask">Ask</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="maxSteps">Max steps</label>
+            <input type="number" id="maxSteps" value="12" min="1" max="50" />
+          </div>
+          <div class="field">
+            <label for="goalType">Goal type</label>
+            <select id="goalType">
+              <option value="auto" selected>auto</option>
+              <option value="generic">generic</option>
+              <option value="runTestsAndFix">runTestsAndFix</option>
+              <option value="addEndpoint">addEndpoint</option>
+              <option value="improveTypes">improveTypes</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="timeoutMs">Timeout (s)</label>
+            <input type="number" id="timeoutMs" placeholder="300" min="10" title="Leave empty for default 300s" />
+          </div>
+          <div class="checkboxes">
+            <label><input type="checkbox" id="liveProgress" checked /> Live progress</label>
+            <label><input type="checkbox" id="verbose" /> Verbose</label>
+            <label><input type="checkbox" id="dryRun" /> Dry run</label>
+          </div>
+        </div>
       </div>
     </div>
 

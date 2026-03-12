@@ -7,6 +7,7 @@ import {
   deleteFileTool,
   deleteFilesTool,
   deleteFolderTool,
+  deletePathTool,
   moveFileTool,
   copyFileTool,
   grepTool,
@@ -42,6 +43,7 @@ const DRY_RUN_TOOLS: ToolName[] = [
   "deleteFile",
   "deleteFiles",
   "deleteFolder",
+  "deletePath",
   "moveFile",
   "copyFile",
   "runCommand",
@@ -109,6 +111,10 @@ export async function executeTool(
       const { path } = params as { path: string };
       return deleteFolderTool(path);
     }
+    case "deletePath": {
+      const { path } = params as { path: string };
+      return deletePathTool(path);
+    }
     case "moveFile": {
       const { from, to } = params as { from: string; to: string };
       return moveFileTool(from, to);
@@ -150,8 +156,8 @@ export async function executeTool(
       return referencedByTool(path);
     }
     case "runCommand": {
-      const { command } = params as { command: string };
-      return runCommandTool(command);
+      const { command, cwd } = params as { command: string; cwd?: string };
+      return runCommandTool(command, cwd ? { cwd } : undefined);
     }
     case "gitStatus":
       return gitStatusTool();

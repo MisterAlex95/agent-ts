@@ -7,6 +7,7 @@ export type ToolName =
   | "deleteFile"
   | "deleteFiles"
   | "deleteFolder"
+  | "deletePath"
   | "moveFile"
   | "copyFile"
   | "listFiles"

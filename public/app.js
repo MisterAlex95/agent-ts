@@ -1,7 +1,10 @@
 (function () {
   const TASK_KEY = "agent-last-task";
+  const TASK_HISTORY_KEY = "agent-task-history";
+  const TASK_HISTORY_MAX = 8;
   const MAX_HISTORY = 10;
   let conversationHistory = [];
+
 
   const taskInput = document.getElementById("task");
   const modeSelect = document.getElementById("mode");
@@ -30,6 +33,68 @@
   const copyBtn = document.getElementById("copyBtn");
   const dryRunBlock = document.getElementById("dryRunBlock");
   const dryRunList = document.getElementById("dryRunList");
+  const toastContainer = document.getElementById("toastContainer");
+  const savedBadge = document.getElementById("savedBadge");
+  const optionsToggle = document.getElementById("optionsToggle");
+  const optionsPanel = document.getElementById("optionsPanel");
+  const taskHistoryList = document.getElementById("taskHistoryList");
+
+  function toast(message, type) {
+    if (!toastContainer) return;
+    const el = document.createElement("div");
+    el.className = "toast" + (type ? " " + type : "");
+    el.textContent = message;
+    toastContainer.appendChild(el);
+    setTimeout(function () {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-4px)";
+      setTimeout(function () { el.remove(); }, 200);
+    }, 2200);
+  }
+
+  function showSavedBadge() {
+    if (!savedBadge) return;
+    savedBadge.classList.add("visible");
+    clearTimeout(showSavedBadge._t);
+    showSavedBadge._t = setTimeout(function () {
+      savedBadge.classList.remove("visible");
+    }, 1500);
+  }
+
+  function getTaskHistory() {
+    try {
+      const s = localStorage.getItem(TASK_HISTORY_KEY);
+      return s ? JSON.parse(s) : [];
+    } catch (_) { return []; }
+  }
+
+  function saveToTaskHistory(task) {
+    const t = String(task).trim();
+    if (!t) return;
+    let list = getTaskHistory();
+    list = list.filter(function (x) { return x !== t; });
+    list.unshift(t);
+    list = list.slice(0, TASK_HISTORY_MAX);
+    try {
+      localStorage.setItem(TASK_HISTORY_KEY, JSON.stringify(list));
+    } catch (_) {}
+    renderTaskHistory();
+  }
+
+  function renderTaskHistory() {
+    if (!taskHistoryList) return;
+    const list = getTaskHistory();
+    if (!list.length) {
+      taskHistoryList.innerHTML = "<li class=\"hint\">No recent tasks</li>";
+      return;
+    }
+    taskHistoryList.innerHTML = list
+      .map(function (task, i) {
+        const short = task.length > 52 ? task.slice(0, 52) + "…" : task;
+        return "<li data-index=\"" + i + "\" title=\"" + escapeHtml(task.slice(0, 200)) + "\">" + escapeHtml(short) + "</li>";
+      })
+      .join("");
+  }
 
   function pushToHistory(userMsg, assistantMsg) {
     conversationHistory.push({ role: "user", content: userMsg });
@@ -150,10 +215,11 @@
   function updateCopyButton(visible, text) {
     copyBtn.hidden = !visible;
     if (visible) {
+      copyBtn.textContent = "Copy answer";
       copyBtn.onclick = function () {
         navigator.clipboard.writeText(text).then(
-          () => { copyBtn.textContent = "Copied"; setTimeout(() => { copyBtn.textContent = "Copy answer"; }, 1500); },
-          () => {}
+          function () { toast("Copied to clipboard", "success"); },
+          function () {}
         );
       };
     }
@@ -185,8 +251,28 @@
     if (!t) return;
     try {
       localStorage.setItem(TASK_KEY, t);
+      showSavedBadge();
     } catch (_) {}
   }
+
+  if (optionsToggle && optionsPanel) {
+    optionsToggle.addEventListener("click", function () {
+      const open = optionsPanel.classList.toggle("collapsed");
+      optionsToggle.classList.toggle("expanded", !open);
+      optionsToggle.setAttribute("aria-expanded", !open);
+    });
+  }
+
+  taskHistoryList?.addEventListener("click", function (e) {
+    const li = e.target.closest("li[data-index]");
+    if (!li) return;
+    const list = getTaskHistory();
+    const idx = parseInt(li.getAttribute("data-index"), 10);
+    if (list[idx] != null) {
+      taskInput.value = list[idx];
+      taskInput.focus();
+    }
+  });
 
   runBtn.addEventListener("click", runTask);
   taskInput.addEventListener("keydown", function (e) {
@@ -253,6 +339,7 @@
             answerEl.className = "answer-block";
             updateCopyButton(true, data.answer ?? "");
             pushToHistory(task, data.answer ?? "");
+            saveToTaskHistory(task);
             metaEl.textContent = "Steps: " + (data.steps ?? 0);
             if (data.dryRunPlannedChanges?.length) {
               dryRunBlock.hidden = false;
@@ -289,6 +376,7 @@
     }
     hideError();
     resultCard.hidden = false;
+    resultCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
     answerEl.innerHTML = "Running…";
     answerEl.className = "answer-block";
     metaEl.textContent = "";
@@ -345,6 +433,7 @@
         answerEl.className = "answer-block";
         updateCopyButton(true, data.answer ?? "");
         pushToHistory(task, data.answer ?? "");
+        saveToTaskHistory(task);
 
         metaEl.textContent = "Steps: " + (data.steps ?? 0);
         if (data.dryRunPlannedChanges?.length) {
@@ -403,5 +492,7 @@
   });
 
   checkHealth();
+  setInterval(checkHealth, 30000);
   loadSavedTask();
+  renderTaskHistory();
 })();

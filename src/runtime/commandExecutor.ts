@@ -44,14 +44,15 @@ export async function runWorkspaceCommand(
   options?: RunCommandOptions,
 ): Promise<CommandResult> {
   const root = getWorkspaceRoot();
-  const cwd = options?.cwd
+  const resolvedCwd = options?.cwd
     ? path.resolve(root, options.cwd)
     : path.resolve(root);
+  const commandToRun = command.trim();
 
-  if (!options?.allowDangerous && !isSafeCommand(command)) {
+  if (!options?.allowDangerous && !isSafeCommand(commandToRun)) {
     return {
       command,
-      cwd,
+      cwd: resolvedCwd,
       stdout: "",
       stderr:
         "Command rejected by whitelist. Allowed prefixes: " +
@@ -65,14 +66,14 @@ export async function runWorkspaceCommand(
   const started = Date.now();
 
   try {
-    const { stdout, stderr } = await execAsync(command, {
-      cwd,
+    const { stdout, stderr } = await execAsync(commandToRun, {
+      cwd: resolvedCwd,
       timeout: options?.timeoutMs,
       maxBuffer: 1024 * 1024,
     });
     return {
-      command,
-      cwd,
+      command: command,
+      cwd: resolvedCwd,
       stdout,
       stderr,
       exitCode: 0,
@@ -92,8 +93,8 @@ export async function runWorkspaceCommand(
         ? ` (killed after timeout ${options.timeoutMs} ms)`
         : "";
     return {
-      command,
-      cwd,
+      command: command,
+      cwd: resolvedCwd,
       stdout: error.stdout ?? "",
       stderr: baseMessage + extra,
       exitCode: typeof error.code === "number" ? error.code : 1,
