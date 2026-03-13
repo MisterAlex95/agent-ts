@@ -274,9 +274,10 @@ function parsePlannedAction(
       if (typeof paramsObj.cwd === "string") normalized.cwd = paramsObj.cwd;
       break;
     case "gitStatus":
-    case "runTests":
-    case "runLint":
-    case "runBuild":
+      break;
+    case "runNpm":
+      normalized.args =
+        typeof paramsObj.args === "string" ? paramsObj.args : "";
       if (typeof paramsObj.cwd === "string") normalized.cwd = paramsObj.cwd;
       break;
     case "gitDiff":

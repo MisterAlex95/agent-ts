@@ -55,18 +55,15 @@ export {
   gitDiffTool,
   gitLogTool,
   gitCommitTool,
-  runTestsTool,
-  runLintTool,
-  runBuildTool,
+  runNpmTool,
 } from "./dev/index.js";
 export type {
   GitStatusResult,
   GitDiffResult,
   GitLogResult,
   GitCommitResult,
-  RunTestsResult,
-  RunLintResult,
-  RunBuildResult,
+  RunNpmResult,
+  RunNpmOptions,
 } from "./dev/index.js";
 
 export {

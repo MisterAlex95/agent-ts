@@ -39,9 +39,7 @@ const TOOL_DEFS: ToolDef[] = [
   { name: "gitDiff", params: "path?: string, staged?: boolean", readOnly: true, dryRunOnly: false },
   { name: "gitLog", params: "maxCount?: number, path?: string", readOnly: true, dryRunOnly: false },
   { name: "gitCommit", params: "message: string", readOnly: false, dryRunOnly: true },
-  { name: "runTests", params: "cwd?: string (optional subdir, e.g. \"react-ts\")", readOnly: false, dryRunOnly: false },
-  { name: "runLint", params: "cwd?: string (optional subdir)", readOnly: false, dryRunOnly: false },
-  { name: "runBuild", params: "cwd?: string (optional subdir, e.g. \"react-ts\")", readOnly: false, dryRunOnly: false },
+  { name: "runNpm", params: "args: string (e.g. \"run build\", \"run lint\", \"test -- --run\"), cwd?: string (optional subdir)", readOnly: false, dryRunOnly: false },
   { name: "DONE", params: "none", readOnly: true, dryRunOnly: false },
 ];
 

@@ -26,9 +26,7 @@ export type ToolName =
   | "gitDiff"
   | "gitLog"
   | "gitCommit"
-  | "runTests"
-  | "runLint"
-  | "runBuild";
+  | "runNpm";
 
 export interface ToolObservation {
   tool: ToolName;

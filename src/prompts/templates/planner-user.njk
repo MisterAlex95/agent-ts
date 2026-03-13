@@ -5,7 +5,7 @@
 
 Current task: {{ task }}{% else %}Task: {{ task }}{% endif %}
 Goal type: {{ goalType }}
-{% if goalType == "runTestsAndFix" %}Hint: run runTests early; if they fail, use readFile on the failing file and editLines/searchReplace to fix, then runTests again.{% endif %}
+{% if goalType == "runTestsAndFix" %}Hint: run runNpm with args "test -- --run" early; if they fail, use readFile on the failing file and editLines/searchReplace to fix, then runNpm again.{% endif %}
 {% if goalType == "addEndpoint" %}Hint: find routes/handlers (searchSymbols or grep), then add or change the endpoint and any minimal test/wiring.{% endif %}
 {% if goalType == "improveTypes" %}Hint: locate the target file (searchCode/readFile), then use searchReplace or editLines to tighten types and fix errors.{% endif %}
 
@@ -27,7 +27,7 @@ Paths already read in this run (do NOT call readFile again for these): {{ alread
 
 When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
 
-Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile, searchReplace, appendFile, or editLines yet; the user asked to run tests and you have not called runTests yet; the user asked for a specific change and you have not attempted it yet. If you have already read the relevant files (see "Paths already read"), the next step MUST be a write (writeFile, searchReplace, appendFile, editLines) or runCommand—do not read more files.
+Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile, searchReplace, appendFile, or editLines yet; the user asked to run tests and you have not called runNpm (e.g. args "test -- --run") yet; the user asked for a specific change and you have not attempted it yet. If you have already read the relevant files (see "Paths already read"), the next step MUST be a write (writeFile, searchReplace, appendFile, editLines) or runCommand—do not read more files.
 
 If the last tool already failed (error in output), do NOT repeat the same tool with the same intent; choose a different tool or DONE.
 

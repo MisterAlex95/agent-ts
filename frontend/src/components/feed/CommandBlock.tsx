@@ -16,12 +16,11 @@ function getCommandLabel(tool: string, params: unknown): string {
       const suffix = parts.length > 3 ? "…" : "";
       return cwd ? `Run ${short}${suffix} (cwd: ${cwd})` : `Run ${short}${suffix}`;
     }
-    case "runTests":
-      return p?.cwd ? `Run tests (cwd: ${p.cwd})` : "Run tests";
-    case "runLint":
-      return p?.cwd ? `Run lint (cwd: ${p.cwd})` : "Run lint";
-    case "runBuild":
-      return p?.cwd ? `Run build (cwd: ${p.cwd})` : "Run build";
+    case "runNpm": {
+      const args = typeof p?.args === "string" ? p.args : "?";
+      const cwd = typeof p?.cwd === "string" ? p.cwd : undefined;
+      return cwd ? `npm ${args} (cwd: ${cwd})` : `npm ${args}`;
+    }
     default:
       return tool;
   }

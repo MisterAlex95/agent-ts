@@ -20,9 +20,7 @@ const FILE_CHANGE_TOOLS = new Set([
 
 const COMMAND_TOOLS = new Set([
   "runCommand",
-  "runTests",
-  "runLint",
-  "runBuild",
+  "runNpm",
 ]);
 
 export function getStepBlockType(tool: string | undefined): StepBlockType {

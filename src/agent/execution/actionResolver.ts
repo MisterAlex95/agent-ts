@@ -27,9 +27,7 @@ import {
   gitDiffTool,
   gitLogTool,
   gitCommitTool,
-  runTestsTool,
-  runLintTool,
-  runBuildTool,
+  runNpmTool,
 } from "../../tools/dev/index.js";
 import type { ToolName } from "../memory/index.js";
 import type { RunMode } from "../../api/schema.js";
@@ -186,17 +184,9 @@ export async function executeTool(
       const { message } = params as { message: string };
       return gitCommitTool(message);
     }
-    case "runTests": {
-      const { cwd } = params as { cwd?: string };
-      return runTestsTool(cwd ? { cwd } : undefined);
-    }
-    case "runLint": {
-      const { cwd } = params as { cwd?: string };
-      return runLintTool(cwd ? { cwd } : undefined);
-    }
-    case "runBuild": {
-      const { cwd } = params as { cwd?: string };
-      return runBuildTool(cwd ? { cwd } : undefined);
+    case "runNpm": {
+      const { args, cwd } = params as { args: string; cwd?: string };
+      return runNpmTool(args ?? "", cwd ? { cwd } : undefined);
     }
     default: {
       const neverTool: never = tool;
