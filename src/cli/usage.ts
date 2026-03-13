@@ -1,9 +1,13 @@
 /**
  * CLI usage / help text.
  */
+import { logger } from "../logger.js";
 
 export function printUsage(): void {
-  console.log(`
+  logger.info(
+    "CLI usage",
+    {
+      usage: `
 Usage:
   agent index
   agent run "Task description" [--max-steps N] [--mode MODE] [--goal-type TYPE] [--verbose] [--timeout MS]
@@ -19,5 +23,7 @@ Options:
 
 Env:
   AGENT_API_URL    Base URL (default: http://localhost:3000)
-`);
+`,
+    },
+  );
 }

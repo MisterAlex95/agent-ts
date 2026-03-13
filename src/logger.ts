@@ -28,6 +28,15 @@ function shouldLog(level: LogLevel): boolean {
   return LEVEL_ORDER[level] >= LEVEL_ORDER[CURRENT_LEVEL];
 }
 
+const COLORS: Record<LogLevel, string> = {
+  debug: "\x1b[90m", // bright black / gray
+  info: "\x1b[36m", // cyan
+  warn: "\x1b[33m", // yellow
+  error: "\x1b[31m", // red
+};
+
+const RESET_COLOR = "\x1b[0m";
+
 function formatMessage(level: LogLevel, message: string): string {
   const ts = new Date().toISOString();
   return `[${ts}] [${level.toUpperCase()}] ${message}`;
@@ -37,21 +46,25 @@ export const logger = {
   debug(message: string, meta?: unknown): void {
     if (!shouldLog("debug")) return;
     const base = formatMessage("debug", message);
-    meta === undefined ? console.debug(base) : console.debug(base, meta);
+    const colored = `${COLORS.debug}${base}${RESET_COLOR}`;
+    meta === undefined ? console.debug(colored) : console.debug(colored, meta);
   },
   info(message: string, meta?: unknown): void {
     if (!shouldLog("info")) return;
     const base = formatMessage("info", message);
-    meta === undefined ? console.info(base) : console.info(base, meta);
+    const colored = `${COLORS.info}${base}${RESET_COLOR}`;
+    meta === undefined ? console.info(colored) : console.info(colored, meta);
   },
   warn(message: string, meta?: unknown): void {
     if (!shouldLog("warn")) return;
     const base = formatMessage("warn", message);
-    meta === undefined ? console.warn(base) : console.warn(base, meta);
+    const colored = `${COLORS.warn}${base}${RESET_COLOR}`;
+    meta === undefined ? console.warn(colored) : console.warn(colored, meta);
   },
   error(message: string, meta?: unknown): void {
     if (!shouldLog("error")) return;
     const base = formatMessage("error", message);
-    meta === undefined ? console.error(base) : console.error(base, meta);
+    const colored = `${COLORS.error}${base}${RESET_COLOR}`;
+    meta === undefined ? console.error(colored) : console.error(colored, meta);
   },
 };

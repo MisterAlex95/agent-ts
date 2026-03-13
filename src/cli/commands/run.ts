@@ -5,6 +5,7 @@
 
 import type { GoalType, RunMode } from "../args.js";
 import { BASE_URL } from "../args.js";
+import { logger } from "../../logger.js";
 
 export interface RunOptions {
   maxSteps?: number;
@@ -32,14 +33,14 @@ export async function runTaskStream(task: string, options: RunOptions): Promise<
 
   if (!res.ok) {
     const text = await res.text();
-    console.error("Task failed:", res.status, text);
+    logger.error("Task (stream) failed", { status: res.status, body: text });
     process.exit(1);
   }
 
   const reader = res.body?.getReader();
   const decoder = new TextDecoder();
   if (!reader) {
-    console.error("No response body");
+    logger.error("Task stream failed: no response body");
     process.exit(1);
   }
 
@@ -70,11 +71,20 @@ export async function runTaskStream(task: string, options: RunOptions): Promise<
           };
           switch (data.type) {
             case "started":
-              if (data.taskId && options.verbose) console.log("Task ID:", data.taskId, "(use DELETE /tasks/" + data.taskId + " to cancel)");
+              if (data.taskId && options.verbose) {
+                logger.info("Task started", {
+                  taskId: data.taskId,
+                  cancelHint: "use DELETE /tasks/{taskId} to cancel",
+                });
+              }
               break;
             case "step":
-              console.log(`Step ${data.step ?? "?"}: ${data.tool ?? "?"}`, data.params ?? "");
-              if (data.error && options.verbose) console.log("  Error:", data.error);
+              logger.info("Step", {
+                step: data.step ?? "?",
+                tool: data.tool ?? "?",
+                params: data.params ?? "",
+                error: data.error,
+              });
               break;
             case "planner_delta":
               if (options.verbose && typeof data.delta === "string") process.stdout.write(data.delta);
@@ -84,15 +94,15 @@ export async function runTaskStream(task: string, options: RunOptions): Promise<
               lastSteps = data.steps ?? 0;
               break;
             case "timeout":
-              console.error("\nTask timed out.");
+              logger.error("Task timed out");
               process.exit(1);
               break;
             case "cancelled":
-              console.error("\nTask cancelled.");
+              logger.warn("Task cancelled");
               process.exit(1);
               break;
             case "error":
-              console.error("Error:", data.error ?? "Unknown");
+              logger.error("Task error", { error: data.error ?? "Unknown" });
               process.exit(1);
               break;
             default:
@@ -119,7 +129,7 @@ export async function runTaskStream(task: string, options: RunOptions): Promise<
   }
 
   if (lastAnswer) console.log("\n" + lastAnswer);
-  console.log(`\nDone in ${lastSteps} steps.`);
+  logger.info("Task completed (stream)", { steps: lastSteps });
 }
 
 export async function runTask(task: string, options: RunOptions): Promise<void> {
@@ -139,7 +149,7 @@ export async function runTask(task: string, options: RunOptions): Promise<void> 
 
   if (!res.ok) {
     const text = await res.text();
-    console.error("Task failed:", res.status, text);
+    logger.error("Task failed", { status: res.status, body: text });
     process.exit(1);
   }
 
@@ -152,16 +162,20 @@ export async function runTask(task: string, options: RunOptions): Promise<void> 
   };
 
   if (options.verbose && Array.isArray(data.trace)) {
-    console.log("--- Trace ---");
+    logger.info("Trace start");
     for (const entry of data.trace) {
-      console.log(`[${entry.timestamp}] ${entry.tool}`, entry.params ?? "");
-      if (entry.error) console.log("  Error:", entry.error);
+      logger.info("Trace entry", {
+        timestamp: entry.timestamp,
+        tool: entry.tool,
+        params: entry.params ?? "",
+        error: entry.error,
+      });
     }
-    console.log("---");
+    logger.info("Trace end");
   }
 
   if (data.answer) {
-    console.log("\n" + data.answer);
+    logger.info("Task answer", { answer: data.answer });
   }
-  console.log(`\nDone in ${data.steps ?? 0} steps.`);
+  logger.info("Task completed", { steps: data.steps ?? 0 });
 }

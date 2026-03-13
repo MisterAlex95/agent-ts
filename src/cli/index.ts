@@ -9,6 +9,7 @@ import { parseArgs } from "./args.js";
 import { runIndex } from "./commands/index.js";
 import { runTask, runTaskStream } from "./commands/run.js";
 import { printUsage } from "./usage.js";
+import { logger } from "../logger.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -26,7 +27,9 @@ async function main(): Promise<void> {
 
   if (command === "run") {
     if (!task) {
-      console.error("Missing task. Usage: agent run \"Your task here\"");
+      logger.error("Missing task for run command", {
+        hint: 'Usage: agent run "Your task here"',
+      });
       process.exit(1);
     }
     const runOpts = { maxSteps, goalType, mode, verbose, timeoutMs, dryRun };
@@ -38,12 +41,12 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.error("Unknown command:", command);
+  logger.error("Unknown command", { command });
   printUsage();
   process.exit(1);
 }
 
 main().catch((err) => {
-  console.error(err);
+  logger.error("CLI main failed", { error: err });
   process.exit(1);
 });

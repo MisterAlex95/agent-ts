@@ -4,14 +4,18 @@
  */
 
 import { BASE_URL } from "../args.js";
+import { logger } from "../../logger.js";
 
 export async function runIndex(): Promise<void> {
   const res = await fetch(`${BASE_URL}/index`, { method: "POST" });
   if (!res.ok) {
     const text = await res.text();
-    console.error("Index failed:", res.status, text);
+    logger.error("Index failed", { status: res.status, body: text });
     process.exit(1);
   }
   const data = (await res.json()) as { indexedFiles?: number; indexedChunks?: number };
-  console.log(`Indexed ${data.indexedFiles ?? 0} files, ${data.indexedChunks ?? 0} chunks.`);
+  logger.info("Index completed", {
+    indexedFiles: data.indexedFiles ?? 0,
+    indexedChunks: data.indexedChunks ?? 0,
+  });
 }
