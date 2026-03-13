@@ -72,6 +72,32 @@ export async function readProjectFile(path: string): Promise<string> {
   return res.text();
 }
 
+export interface IndexStatus {
+  lastIndexedAt: string | null;
+  indexedFiles: number;
+  indexedChunks: number;
+}
+
+export async function getIndexStatus(): Promise<IndexStatus | null> {
+  try {
+    const res = await fetch("/index/status");
+    if (!res.ok) return null;
+    return (await res.json()) as IndexStatus;
+  } catch {
+    return null;
+  }
+}
+
+export async function getRunById(id: string): Promise<ServerRunRecord | null> {
+  try {
+    const res = await fetch(`/runs/${id}`);
+    if (!res.ok) return null;
+    return (await res.json()) as ServerRunRecord;
+  } catch {
+    return null;
+  }
+}
+
 export async function getRecentRuns(limit = 10): Promise<ServerRunRecord[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) });

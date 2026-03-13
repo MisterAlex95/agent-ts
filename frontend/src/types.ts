@@ -88,5 +88,7 @@ export interface ServerRunRecord {
   cancelled?: boolean;
   timestamp: string;
   error?: string;
+  task?: string;
+  answer?: string | null;
 }
 

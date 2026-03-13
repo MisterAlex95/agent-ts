@@ -3,7 +3,8 @@ import type { Express, Request, Response } from "express";
 import { runAgentLoop, TaskTimeoutError } from "../agent/index.js";
 import { indexWorkspaceRepository, indexWorkspaceIncremental } from "../rag/indexer.js";
 import { registerTask, abortTask, unregisterTask } from "./taskStore.js";
-import { recordRun, getMetrics, getRecentRuns } from "./metrics.js";
+import { recordRun, getMetrics, getRecentRuns, runRowToRecord } from "./metrics.js";
+import { recordIndexRun, getIndexStatus, getRunById } from "./db.js";
 import type { TaskRequestBody, TaskResponseBody, GoalType, RunMode } from "./schema.js";
 import { logger } from "../logger.js";
 import { getWorkspaceRoot, listWorkspaceDirectEntries, readWorkspaceFile } from "../runtime/workspaceManager.js";
@@ -119,6 +120,8 @@ export function registerRoutes(app: Express): void {
         taskPreview: body.task.slice(0, 120),
         goalType: (goalType ?? "auto") as string,
         mode: (mode ?? "Agent") as string,
+        task: body.task,
+        answer: result.answer ?? null,
       });
       logger.info("Streamed task finished", {
         taskId,
@@ -218,6 +221,8 @@ export function registerRoutes(app: Express): void {
         taskPreview: body.task.slice(0, 120),
         goalType: (goalType ?? "auto") as string,
         mode: (mode ?? "Agent") as string,
+        task: body.task,
+        answer: result.answer ?? null,
       });
       logger.info("Task finished", {
         steps: result.steps,
@@ -294,6 +299,19 @@ export function registerRoutes(app: Express): void {
     }
   });
 
+  app.get("/index/status", (_req: Request, res: Response) => {
+    const status = getIndexStatus();
+    if (!status) {
+      res.json({ lastIndexedAt: null, indexedFiles: 0, indexedChunks: 0 });
+      return;
+    }
+    res.json({
+      lastIndexedAt: status.last_at,
+      indexedFiles: status.indexed_files,
+      indexedChunks: status.indexed_chunks,
+    });
+  });
+
   app.post("/index", async (req: Request, res: Response) => {
     try {
       const incremental =
@@ -303,12 +321,27 @@ export function registerRoutes(app: Express): void {
       const result = incremental
         ? await indexWorkspaceIncremental()
         : await indexWorkspaceRepository();
+      recordIndexRun(result.indexedFiles, result.indexedChunks);
       res.json(result);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.error("Indexing failed", { error: message });
       res.status(500).json({ error: message });
     }
+  });
+
+  app.get("/runs/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: "Missing run id" });
+      return;
+    }
+    const row = getRunById(id);
+    if (!row) {
+      res.status(404).json({ error: "Run not found", id });
+      return;
+    }
+    res.json(runRowToRecord(row));
   });
 }
 

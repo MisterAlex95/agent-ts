@@ -36,6 +36,9 @@ coverage/
 .nyc_output/
 vitest-results/
 
+# Local DB (run history)
+data/
+
 # Misc
 *.pid
 .cache/

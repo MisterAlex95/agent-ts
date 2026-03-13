@@ -1,8 +1,30 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { getIndexStatus } from "../api/client";
+
+function formatLastIndexed(iso: string | null): string {
+  if (!iso) return "Never indexed";
+  const d = new Date(iso);
+  const now = new Date();
+  const sec = Math.floor((now.getTime() - d.getTime()) / 1000);
+  if (sec < 60) return "Last indexed just now";
+  if (sec < 3600) return `Last indexed ${Math.floor(sec / 60)} min ago`;
+  if (sec < 86400) return `Last indexed ${Math.floor(sec / 3600)} h ago`;
+  return `Last indexed ${d.toLocaleDateString()}`;
+}
 
 export const ProjectPage: React.FC = () => {
   const [status, setStatus] = useState<string>("");
   const [isIndexing, setIsIndexing] = useState(false);
+  const [indexStatus, setIndexStatus] = useState<{ lastIndexedAt: string | null; indexedFiles: number; indexedChunks: number } | null>(null);
+
+  const loadIndexStatus = useCallback(async () => {
+    const s = await getIndexStatus();
+    if (s) setIndexStatus(s);
+  }, []);
+
+  useEffect(() => {
+    void loadIndexStatus();
+  }, [loadIndexStatus]);
 
   const triggerIndex = async () => {
     setIsIndexing(true);
@@ -14,9 +36,8 @@ export const ProjectPage: React.FC = () => {
         setStatus(`Error: ${data.error ?? res.status}`);
         return;
       }
-      setStatus(
-        `Indexed ${data.indexedFiles ?? 0} files, ${data.indexedChunks ?? 0} chunks`,
-      );
+      setStatus("");
+      void loadIndexStatus();
     } catch (err) {
       setStatus(err instanceof Error ? err.message : String(err));
     } finally {
@@ -43,8 +64,14 @@ export const ProjectPage: React.FC = () => {
         >
           {isIndexing ? "Indexing…" : "Index workspace"}
         </button>
-        <span className="index-status">{status}</span>
+        <span className="index-status">
+          {indexStatus ? formatLastIndexed(indexStatus.lastIndexedAt) : ""}
+          {indexStatus?.lastIndexedAt && indexStatus.indexedFiles > 0 && (
+            <> — {indexStatus.indexedFiles} files, {indexStatus.indexedChunks} chunks</>
+          )}
+        </span>
       </div>
+      {status && <p className="index-status index-error">{status}</p>}
     </section>
   );
 };

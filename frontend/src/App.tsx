@@ -56,24 +56,43 @@ export const App: React.FC = () => {
       dryRun: boolean;
       timeoutMs?: number;
       history?: Array<{ role: "user" | "assistant"; content: string }>;
+      continueRunId?: string;
     }) => {
-      const id = crypto.randomUUID();
-      const createdAt = new Date().toISOString();
-      const baseRun: AgentRun = {
-        id,
-        task: params.task,
-        mode: params.mode,
-        goalType: params.goalType,
-        maxSteps: params.maxSteps,
-        verbose: params.verbose,
-        dryRun: params.dryRun,
-        createdAt,
-        status: "running",
-        steps: [],
-      };
-      setRuns((prev) => [baseRun, ...prev]);
-      setSelectedRunId(id);
-      setActivePage("runs");
+      const isContinue = Boolean(params.continueRunId);
+      const id = isContinue ? params.continueRunId! : crypto.randomUUID();
+
+      if (!isContinue) {
+        const createdAt = new Date().toISOString();
+        const baseRun: AgentRun = {
+          id,
+          task: params.task,
+          mode: params.mode,
+          goalType: params.goalType,
+          maxSteps: params.maxSteps,
+          verbose: params.verbose,
+          dryRun: params.dryRun,
+          createdAt,
+          status: "running",
+          steps: [],
+        };
+        setRuns((prev) => [baseRun, ...prev]);
+        setSelectedRunId(id);
+        setActivePage("runs");
+      } else {
+        setRuns((prev) =>
+          prev.map((run) =>
+            run.id === id
+              ? {
+                  ...run,
+                  status: "running" as const,
+                  plannerStream: "",
+                  errorMessage: undefined,
+                }
+              : run,
+          ),
+        );
+      }
+
       setIsStarting(true);
 
       const stop = createTaskStream(

@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import dotenv from "dotenv";
@@ -33,7 +34,7 @@ export async function listWorkspaceFiles(relativeDir = "."): Promise<string[]> {
   if (!isPathWithinWorkspace(ROOT, base)) {
     return [];
   }
-  let entries: fs.Dirent[];
+  let entries: Dirent[];
   try {
     entries = await fs.readdir(base, { withFileTypes: true });
   } catch (err) {
@@ -73,7 +74,7 @@ export async function listWorkspaceDirectEntries(relativeDir = "."): Promise<Wor
   if (!isPathWithinWorkspace(ROOT, base)) {
     return [];
   }
-  let entries: fs.Dirent[];
+  let entries: Dirent[];
   try {
     entries = await fs.readdir(base, { withFileTypes: true });
   } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentRun, GoalType, RunMode } from "../types";
 import {
   getStepBlockType,
@@ -23,6 +23,8 @@ type RunsPageProps = {
     dryRun: boolean;
     timeoutMs?: number;
     history?: Array<{ role: "user" | "assistant"; content: string }>;
+    /** When set, continue this run (same conversation) instead of creating a new one */
+    continueRunId?: string;
   }) => void;
   isStarting?: boolean;
 };
@@ -37,15 +39,27 @@ export const RunsPage: React.FC<RunsPageProps> = ({
 }) => {
   const [promptInput, setPromptInput] = useState("");
 
+  const scrollRef = useRef<HTMLDivElement>(null);
   const stepEvents = activeRun?.steps?.filter((s) => s.type === "step") ?? [];
   const stepThoughts = activeRun?.stepThoughts ?? [];
   const hasStreamingThought = (activeRun?.plannerStream ?? "").trim().length > 0;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [
+    stepEvents.length,
+    hasStreamingThought,
+    activeRun?.answer,
+    activeRun?.plannerStream,
+  ]);
 
   const submitPrompt = useCallback(() => {
     const trimmed = promptInput.trim();
     if (!trimmed || !onStartRun || isStarting) return;
     const history =
-      activeRun?.status === "finished" && activeRun?.answer
+      activeRun?.answer != null && activeRun.answer !== ""
         ? [
             { role: "user" as const, content: activeRun.task },
             { role: "assistant" as const, content: activeRun.answer },
@@ -55,9 +69,10 @@ export const RunsPage: React.FC<RunsPageProps> = ({
       task: trimmed,
       mode: "Agent",
       maxSteps: 12,
-      verbose: false,
-      dryRun: false,
+      verbose: activeRun?.verbose ?? false,
+      dryRun: activeRun?.dryRun ?? false,
       history,
+      continueRunId: activeRun?.id ?? undefined,
     });
     setPromptInput("");
   }, [promptInput, onStartRun, isStarting, activeRun]);
@@ -150,7 +165,7 @@ export const RunsPage: React.FC<RunsPageProps> = ({
               </div>
             </div>
 
-            <div className="run-detail-scroll" aria-label="Steps and answer">
+            <div ref={scrollRef} className="run-detail-scroll" aria-label="Steps and answer">
               <div className="run-feed" aria-label="Steps feed">
                 {stepEvents.length === 0 && !hasStreamingThought ? (
                   <div className="runs-empty">Waiting for first step…</div>

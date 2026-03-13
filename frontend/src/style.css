@@ -312,7 +312,7 @@ kbd {
 
 .server-run-row {
   display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
   gap: 0.4rem;
   align-items: center;
   padding: 0.25rem 0;
@@ -348,6 +348,98 @@ kbd {
   font-size: 0.75rem;
   color: var(--text-soft);
   white-space: nowrap;
+}
+
+.server-run-view {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--border-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+.server-run-view:hover {
+  background: var(--bg-elevated-soft);
+  color: var(--text);
+}
+
+.run-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.run-detail-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  max-width: 560px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.run-detail-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.run-detail-modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.run-detail-close {
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 0.25rem;
+}
+
+.run-detail-close:hover {
+  color: var(--text);
+}
+
+.run-detail-section {
+  padding: 1rem 1.25rem;
+  overflow: auto;
+}
+
+.run-detail-section h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.run-detail-content {
+  margin: 0;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.run-detail-empty {
+  padding: 1.25rem;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+.index-error {
+  color: var(--danger);
 }
 
 .options-row {

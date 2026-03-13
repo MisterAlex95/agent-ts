@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from "react";
 import type { AgentRun, GoalType, MetricsSnapshot, RunMode, ServerRunRecord } from "../types";
+import { getRunById } from "../api/client";
 
 type DashboardPageProps = {
   onStartRun: (params: {
@@ -33,6 +34,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const [maxSteps, setMaxSteps] = useState(12);
   const [verbose, setVerbose] = useState(false);
   const [dryRun, setDryRun] = useState(false);
+  const [runDetail, setRunDetail] = useState<ServerRunRecord | null>(null);
+
+  const openRunDetail = useCallback(async (id: string) => {
+    const r = await getRunById(id);
+    setRunDetail(r ?? null);
+  }, []);
 
   const submit = useCallback(() => {
     const trimmed = task.trim();
@@ -231,6 +238,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
                     <span className="server-run-meta">
                       {((run.durationMs ?? 0) / 1000).toFixed(1)}s • {run.steps} steps
                     </span>
+                    {run.id && (
+                      <button
+                        type="button"
+                        className="server-run-view"
+                        onClick={() => void openRunDetail(run.id!)}
+                      >
+                        View
+                      </button>
+                    )}
                   </li>
                 );
               })}
@@ -238,6 +254,39 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
           )}
         </div>
       </section>
+      {runDetail && (
+        <div
+          className="run-detail-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Run detail"
+          onClick={() => setRunDetail(null)}
+        >
+          <div className="run-detail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="run-detail-modal-header">
+              <h3>Run detail</h3>
+              <button type="button" className="run-detail-close" onClick={() => setRunDetail(null)}>
+                ×
+              </button>
+            </div>
+            {runDetail.task && (
+              <div className="run-detail-section">
+                <h4>Task</h4>
+                <pre className="run-detail-content">{runDetail.task}</pre>
+              </div>
+            )}
+            {runDetail.answer != null && runDetail.answer !== "" && (
+              <div className="run-detail-section">
+                <h4>Answer</h4>
+                <pre className="run-detail-content">{runDetail.answer}</pre>
+              </div>
+            )}
+            {(!runDetail.task && !runDetail.answer) && (
+              <p className="run-detail-empty">No task or answer stored for this run.</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
