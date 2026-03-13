@@ -109,14 +109,18 @@ export async function listFilesTool(
   return { root, files, entries };
 }
 
+const READ_FILE_BEGIN_MARKER = "(beginning of file)\n";
+const READ_FILE_END_MARKER = "\n(end of file)";
+
 export async function readFileTool(
   pathRelative: string,
 ): Promise<ReadFileResult> {
   if (isProtectedPath(pathRelative)) {
     throw new Error(`readFileTool: access to protected path '${pathRelative}'`);
   }
-  const content = await readWorkspaceFile(pathRelative);
-  return { path: pathRelative, content };
+  const raw = await readWorkspaceFile(pathRelative);
+  const content = READ_FILE_BEGIN_MARKER + raw + READ_FILE_END_MARKER;
+  return { path: pathRelative.replace(/\\/g, "/"), content };
 }
 
 export async function writeFileTool(
