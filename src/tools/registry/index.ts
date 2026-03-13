@@ -16,6 +16,7 @@ const TOOL_DEFS: ToolDef[] = [
   { name: "searchSymbols", params: "query: string (function/class/endpoint name or purpose)", readOnly: true, dryRunOnly: false },
   { name: "listFiles", params: "path: string (e.g. \".\" or \"src\")", readOnly: true, dryRunOnly: false },
   { name: "readFile", params: "path: string (relative path)", readOnly: true, dryRunOnly: false },
+  { name: "readFiles", params: "paths: string[] (2+ files in one call; each content has (beginning of file)/(end of file) markers)", readOnly: true, dryRunOnly: false },
   { name: "writeFile", params: "path: string, content: string (code must be indented, multiple lines)", readOnly: false, dryRunOnly: true },
   { name: "editLines", params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; use when you have line numbers from search)", readOnly: false, dryRunOnly: true },
   { name: "mkdir", params: "path: string (directory path; creates recursively)", readOnly: false, dryRunOnly: true },

@@ -17,6 +17,8 @@ export interface PlanningContext {
   /** Steps left in this run (for countdown / prefer progress) */
   stepsRemaining?: number;
   maxSteps?: number;
+  /** True if at least one write was already run this run */
+  hasPerformedWrite?: boolean;
 }
 
 export function getPlannerAskModePrompt(toolsList: string): string {

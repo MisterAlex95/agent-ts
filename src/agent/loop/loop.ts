@@ -16,9 +16,17 @@ import {
   formatRecentObservations,
   getAlreadyReadPaths,
   getAlreadyListedPaths,
+  getHasPerformedWrite,
   truncateForTrace,
 } from "./formatObservations.js";
 import { triggerAutoIndex } from "./autoIndex.js";
+
+export class TaskTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TaskTimeoutError";
+  }
+}
 
 export type { AgentRunOptions, AgentRunResult, StepEvent, TraceEntry } from "./types.js";
 
@@ -66,7 +74,7 @@ export async function runAgentLoop(
 
   const timeoutPromise = new Promise<never>((_, reject) => {
     const t = setTimeout(
-      () => reject(new Error(`Task timeout after ${timeoutMs}ms`)),
+      () => reject(new TaskTimeoutError(`Task timeout after ${timeoutMs}ms`)),
       timeoutMs,
     );
     t.unref?.();
@@ -86,6 +94,7 @@ export async function runAgentLoop(
       const recentObservations = formatRecentObservations(observationSummaries);
       const alreadyReadPaths = getAlreadyReadPaths(observationSummaries);
       const alreadyListedPaths = getAlreadyListedPaths(observationSummaries);
+      const hasPerformedWrite = getHasPerformedWrite(observationSummaries);
 
       const relevantContext = relevantContextChunks
         .slice(-cfg.maxContextChunks)
@@ -116,6 +125,7 @@ export async function runAgentLoop(
           alreadyListedPaths.length > 0 ? alreadyListedPaths : undefined,
         stepsRemaining: maxSteps - steps,
         maxSteps,
+        hasPerformedWrite,
         onPlannerChunk: options?.onPlannerChunk,
       });
 

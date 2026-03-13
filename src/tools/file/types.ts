@@ -11,6 +11,11 @@ export interface ReadFileResult {
   totalChars: number;
 }
 
+export interface ReadFilesResult {
+  files: Array<{ path: string; content: string }>;
+  errors?: Array<{ path: string; error: string }>;
+}
+
 export interface WriteFileResult {
   path: string;
   previousContentSnippet?: string;

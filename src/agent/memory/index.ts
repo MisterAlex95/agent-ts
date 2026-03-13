@@ -2,6 +2,7 @@ export type ToolName =
   | "searchCode"
   | "searchSymbols"
   | "readFile"
+  | "readFiles"
   | "writeFile"
   | "editLines"
   | "mkdir"

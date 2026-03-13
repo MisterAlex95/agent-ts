@@ -16,8 +16,13 @@ export async function semanticSearch(
   query: string,
   options?: { limit?: number },
 ): Promise<SemanticSearchResult[]> {
-  const vectors = await embedTexts([query]);
-  const vector = Array.isArray(vectors) ? vectors[0] : undefined;
+  let vector: number[] | undefined;
+  try {
+    const vectors = await embedTexts([query]);
+    vector = Array.isArray(vectors) ? vectors[0] : undefined;
+  } catch {
+    return [];
+  }
   if (!vector || !Array.isArray(vector)) return [];
 
   const limit = options?.limit ?? 16;
@@ -64,8 +69,13 @@ export async function semanticSearchSymbols(
   query: string,
   options?: { limit?: number },
 ): Promise<SemanticSearchResult[]> {
-  const vectors = await embedTexts([query]);
-  const vector = Array.isArray(vectors) ? vectors[0] : undefined;
+  let vector: number[] | undefined;
+  try {
+    const vectors = await embedTexts([query]);
+    vector = Array.isArray(vectors) ? vectors[0] : undefined;
+  } catch {
+    return [];
+  }
   if (!vector || !Array.isArray(vector)) return [];
 
   const limit = options?.limit ?? 16;

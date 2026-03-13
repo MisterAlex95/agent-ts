@@ -28,11 +28,28 @@ export function formatSearchChunk(
 export function getAlreadyReadPaths(summaries: string[]): string {
   const paths: string[] = [];
   for (const s of summaries) {
-    if (!s.includes("Tool: readFile")) continue;
-    const m = s.match(/"path"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    if (m) paths.push(m[1]);
+    if (s.includes("Tool: readFile")) {
+      const m = s.match(/"path"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if (m) paths.push(m[1]);
+    }
+    if (s.includes("Tool: readFiles")) {
+      const inputLine = s.split("\n").find((l) => l.startsWith("Input:"));
+      if (inputLine) {
+        try {
+          const obj = JSON.parse(inputLine.replace(/^Input:\s*/, "")) as { paths?: string[] };
+          if (Array.isArray(obj.paths)) paths.push(...obj.paths);
+        } catch {
+          // ignore parse errors
+        }
+      }
+    }
   }
   return [...new Set(paths)].join(", ");
+}
+
+export function getHasPerformedWrite(summaries: string[]): boolean {
+  const writeTools = ["writeFile", "searchReplace", "appendFile", "editLines"];
+  return summaries.some((s) => writeTools.some((t) => s.includes("Tool: " + t)));
 }
 
 export function getAlreadyListedPaths(summaries: string[]): string {

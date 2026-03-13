@@ -1,5 +1,6 @@
 export { listFilesTool } from "./listFiles.js";
 export { readFileTool } from "./readFile.js";
+export { readFilesTool } from "./readFiles.js";
 export { writeFileTool } from "./writeFile.js";
 export { appendFileTool } from "./appendFile.js";
 export { patchFileTool } from "./patchFile.js";
@@ -22,6 +23,7 @@ export { referencedByTool } from "./referencedBy.js";
 export type {
   ListFilesResult,
   ReadFileResult,
+  ReadFilesResult,
   WriteFileResult,
   AppendFileResult,
   FilePatchOperation,

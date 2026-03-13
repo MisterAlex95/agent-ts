@@ -131,6 +131,8 @@
   function setRunning(running) {
     runBtn.disabled = running;
     runBtn.textContent = running ? "" : "Run";
+    runBtn.setAttribute("aria-busy", running);
+    if (resultCard) resultCard.setAttribute("aria-busy", running);
     if (running) {
       const span = document.createElement("span");
       span.className = "spinner";
@@ -457,9 +459,11 @@
             }
           } else if (data.type === "error") {
             hidePlanningStream();
-            showError(data.error || "Unknown error");
+            showError(data.timeout ? "Task timed out. " + (data.error || "") : (data.error || "Unknown error"));
           }
-        } catch (_) {}
+        } catch (_) {
+          toast("Invalid stream data");
+        }
       }
     }
   }
@@ -520,7 +524,8 @@
         const data = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          showError(data.error || "HTTP " + res.status);
+          const msg = data.timeout ? "Task timed out. " + (data.error || "") : (data.error || "HTTP " + res.status);
+          showError(msg);
           answerEl.innerHTML = "";
           return;
         }

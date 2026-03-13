@@ -20,10 +20,12 @@ Paths already read in this run (do NOT call readFile again for these): {{ alread
 {% endif %}
 {% if stepsRemaining is defined and maxSteps is defined %}Steps remaining: {{ stepsRemaining }} of {{ maxSteps }}. Prefer making progress (writeFile, searchReplace, appendFile, runCommand) over more exploration.
 {% endif %}
+{% if hasPerformedWrite === false %}You have not performed any file write (writeFile, searchReplace, appendFile, editLines) yet. The next step MUST be one of these write tools or runCommand—do not read more files.
+{% endif %}
 
 When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
 
-Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile yet; the user asked to run tests and you have not called runTests yet; the user asked for a specific change and you have not attempted it yet. Do NOT keep listing or reading files when the task is to build something—use writeFile or runCommand.
+Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile, searchReplace, appendFile, or editLines yet; the user asked to run tests and you have not called runTests yet; the user asked for a specific change and you have not attempted it yet. If you have already read the relevant files (see "Paths already read"), the next step MUST be a write (writeFile, searchReplace, appendFile, editLines) or runCommand—do not read more files.
 
 If the last tool already failed (error in output), do NOT repeat the same tool with the same intent; choose a different tool or DONE.
 

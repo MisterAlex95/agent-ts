@@ -29,6 +29,8 @@ export interface PlanningContext {
   alreadyListedPaths?: string;
   stepsRemaining?: number;
   maxSteps?: number;
+  /** True if at least one write (writeFile, searchReplace, appendFile, editLines) was already run */
+  hasPerformedWrite?: boolean;
   /** Called with each planner LLM stream delta for live UI updates */
   onPlannerChunk?: (delta: string) => void;
 }
@@ -154,6 +156,11 @@ function parsePlannedAction(
     case "readFile":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : ".";
+      break;
+    case "readFiles":
+      normalized.paths = Array.isArray(paramsObj.paths)
+        ? (paramsObj.paths as unknown[]).filter((p): p is string => typeof p === "string")
+        : [];
       break;
     case "mkdir":
     case "touch":

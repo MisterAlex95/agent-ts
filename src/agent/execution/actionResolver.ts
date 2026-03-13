@@ -1,6 +1,7 @@
 import { searchCodeTool, searchSymbolsTool } from "../../tools/search/index.js";
 import {
   readFileTool,
+  readFilesTool,
   writeFileTool,
   listFilesTool,
   editLinesTool,
@@ -75,6 +76,10 @@ export async function executeTool(
     case "readFile": {
       const { path } = params as { path: string };
       return readFileTool(path);
+    }
+    case "readFiles": {
+      const { paths } = params as { paths: string[] };
+      return readFilesTool(Array.isArray(paths) ? paths : []);
     }
     case "writeFile": {
       const { path, content } = params as { path: string; content: string };
