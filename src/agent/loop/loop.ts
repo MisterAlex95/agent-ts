@@ -20,6 +20,7 @@ import {
   truncateForTrace,
 } from "./formatObservations.js";
 import { triggerAutoIndex } from "./autoIndex.js";
+import { logger } from "../../logger.js";
 
 export class TaskTimeoutError extends Error {
   constructor(message: string) {
@@ -101,15 +102,14 @@ export async function runAgentLoop(
         .join("\n\n---\n\n");
 
       if (verbose) {
-        console.debug(
+        logger.debug(
           "[planner] step",
-          steps + 1,
-          "| alreadyReadPaths:",
-          alreadyReadPaths || "(none)",
-          "| alreadyListedPaths:",
-          alreadyListedPaths || "(none)",
-          "| recentObservations length:",
-          recentObservations.length,
+          {
+            step: steps + 1,
+            alreadyReadPaths: alreadyReadPaths || "(none)",
+            alreadyListedPaths: alreadyListedPaths || "(none)",
+            recentObservationsLength: recentObservations.length,
+          },
         );
       }
       const planned = await planNextAction({

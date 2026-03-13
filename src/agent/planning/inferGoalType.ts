@@ -1,6 +1,7 @@
 import { ollamaChat } from "../../llm/ollamaClient.js";
 import type { GoalType } from "../../api/schema.js";
 import { getInferGoalTypePrompt } from "../../prompts/infer-goal-type.js";
+import { logger } from "../../logger.js";
 
 const GOAL_TYPES: GoalType[] = [
   "generic",
@@ -22,7 +23,12 @@ export async function inferGoalType(task: string): Promise<GoalType> {
     const word = String(content).trim().toLowerCase().replace(/\s+/g, "");
     const match = GOAL_TYPES.find((g) => word === g.toLowerCase());
     return match ?? "generic";
-  } catch {
+  } catch (error) {
+    // Log and fall back to generic so the agent can still run.
+    logger.error("[inferGoalType] Failed to infer goal type", {
+      task: trimmed,
+      error,
+    });
     return "generic";
   }
 }

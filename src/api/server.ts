@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import express from "express";
 import { registerRoutes } from "./routes.js";
+import { logger } from "../logger.js";
 
 dotenv.config();
 
@@ -19,10 +20,9 @@ function validateConfig(): void {
     missing.push("EMBEDDING_MODEL");
 
   if (missing.length > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(
+    logger.warn(
       "[config] Some environment variables are missing or rely on defaults:",
-      missing.join(", "),
+      { missing },
     );
   }
 }
@@ -52,8 +52,7 @@ async function main(): Promise<void> {
 
   const port = Number(process.env.PORT ?? 3000);
   app.listen(port, "0.0.0.0", () => {
-    // eslint-disable-next-line no-console
-    console.log(`HTTP server listening on http://0.0.0.0:${port}`);
+    logger.info("HTTP server listening", { port });
   });
 }
 

@@ -8,6 +8,7 @@ import {
   PLANNER_RETRY_PROMPT,
   PLANNER_FALLBACK_PROMPT,
 } from "../../prompts/planner.js";
+import { logger } from "../../logger.js";
 import { getToolsForPlanner, READ_ONLY_TOOLS, EXECUTABLE_TOOL_NAMES } from "../../tools/registry/index.js";
 
 export interface PlannedAction {
@@ -324,7 +325,19 @@ export async function planNextAction(
         });
         messages.push({ role: "user", content: PLANNER_RETRY_PROMPT });
       }
-    } catch {
+      if (!parsed && attempt === 1) {
+        logger.warn("[planNextAction] Could not parse a valid PlannedAction from model output", {
+          task: ctx.task,
+          mode: ctx.mode,
+        });
+      }
+    } catch (error) {
+      logger.error("[planNextAction] Planner LLM call failed", {
+        attempt,
+        task: ctx.task,
+        mode: ctx.mode,
+        error,
+      });
       if (attempt === 1) return null;
       messages.push({ role: "user", content: PLANNER_FALLBACK_PROMPT });
     }
