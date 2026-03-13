@@ -48,7 +48,7 @@ Prioritized backlog. Done items removed; focus on what remains and lessons from 
 
 ## P3 – Scenarios & polish
 
-- [ ] **Pre-packaged scenarios**  
+- [x] **Pre-packaged scenarios**  
   Implement and document: `improveTypes`, `addEndpoint`, `fixTest` (run tests → read errors → patch). Add example `POST /tasks` bodies in README.
 
 - [ ] **Stream final answer**  

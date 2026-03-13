@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { logger } from "../logger.js";
 
 dotenv.config();
 
@@ -28,9 +29,14 @@ const AGENT_BASE_URL = process.env.AGENT_BASE_URL ?? "http://localhost:11434";
 const DEFAULT_MODEL = process.env.AGENT_MODEL ?? "qwen2.5-coder";
 const DEFAULT_EMBEDDING_MODEL =
   process.env.EMBEDDING_MODEL ?? "nomic-embed-text";
+const LLM_HEADERS_TIMEOUT_MS = Number(
+  process.env.AGENT_LLM_HEADERS_TIMEOUT_MS ?? 120_000,
+);
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${AGENT_BASE_URL}${path}`, {
+  const url = `${AGENT_BASE_URL}${path}`;
+  logger.debug("LLM POST JSON", { url, hasBody: body != null });
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -40,6 +46,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
+    logger.error("LLM POST JSON failed", { url, status: res.status, body: text.slice(0, 500) });
     throw new Error(`Ollama request failed: ${res.status} ${text}`);
   }
 
@@ -80,14 +87,42 @@ export async function ollamaChatStream(
     stream: true,
   };
 
-  const res = await fetch(`${AGENT_BASE_URL}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const url = `${AGENT_BASE_URL}/api/chat`;
+  logger.debug("LLM chat request", {
+    url,
+    model,
+    temperature,
+    messagesCount: messages.length,
   });
+
+  let res: Response;
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), LLM_HEADERS_TIMEOUT_MS);
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+  } catch (err) {
+    logger.error("LLM chat fetch failed", {
+      url,
+      model,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
 
   if (!res.ok) {
     const text = await res.text();
+    logger.error("LLM chat HTTP error", {
+      url,
+      model,
+      status: res.status,
+      body: text.slice(0, 500),
+    });
     throw new Error(`Ollama request failed: ${res.status} ${text}`);
   }
 

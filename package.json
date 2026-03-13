@@ -8,6 +8,9 @@
   },
   "scripts": {
     "dev": "tsx watch src/api/server.ts",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:preview": "cd frontend && npm run preview",
     "build": "tsc -p tsconfig.json && node scripts/copy-templates.mjs",
     "start": "node dist/api/server.js",
     "agent": "tsx src/cli/index.ts",

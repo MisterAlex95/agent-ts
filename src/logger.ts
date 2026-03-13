@@ -42,29 +42,55 @@ function formatMessage(level: LogLevel, message: string): string {
   return `[${ts}] [${level.toUpperCase()}] ${message}`;
 }
 
+function formatMeta(meta: unknown): string {
+  if (meta == null) return "";
+  if (typeof meta !== "object") return String(meta);
+  const obj = meta as Record<string, unknown>;
+  const entries = Object.entries(obj);
+  if (!entries.length) return "";
+  const parts = entries.map(([key, value]) => {
+    if (value === null || value === undefined) return `${key}=null`;
+    if (typeof value === "string") {
+      const v = value.length > 80 ? `${value.slice(0, 77)}…` : value;
+      return `${key}="${v.replace(/\n/g, "\\n")}"`;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return `${key}=${String(value)}`;
+    }
+    const json = JSON.stringify(value);
+    const v = json.length > 120 ? `${json.slice(0, 117)}…` : json;
+    return `${key}=${v}`;
+  });
+  return parts.join(" ");
+}
+
 export const logger = {
   debug(message: string, meta?: unknown): void {
     if (!shouldLog("debug")) return;
     const base = formatMessage("debug", message);
-    const colored = `${COLORS.debug}${base}${RESET_COLOR}`;
-    meta === undefined ? console.debug(colored) : console.debug(colored, meta);
+    const metaStr = meta !== undefined ? ` ${formatMeta(meta)}` : "";
+    const colored = `${COLORS.debug}${base}${metaStr}${RESET_COLOR}`;
+    console.debug(colored);
   },
   info(message: string, meta?: unknown): void {
     if (!shouldLog("info")) return;
     const base = formatMessage("info", message);
-    const colored = `${COLORS.info}${base}${RESET_COLOR}`;
-    meta === undefined ? console.info(colored) : console.info(colored, meta);
+    const metaStr = meta !== undefined ? ` ${formatMeta(meta)}` : "";
+    const colored = `${COLORS.info}${base}${metaStr}${RESET_COLOR}`;
+    console.info(colored);
   },
   warn(message: string, meta?: unknown): void {
     if (!shouldLog("warn")) return;
     const base = formatMessage("warn", message);
-    const colored = `${COLORS.warn}${base}${RESET_COLOR}`;
-    meta === undefined ? console.warn(colored) : console.warn(colored, meta);
+    const metaStr = meta !== undefined ? ` ${formatMeta(meta)}` : "";
+    const colored = `${COLORS.warn}${base}${metaStr}${RESET_COLOR}`;
+    console.warn(colored);
   },
   error(message: string, meta?: unknown): void {
     if (!shouldLog("error")) return;
     const base = formatMessage("error", message);
-    const colored = `${COLORS.error}${base}${RESET_COLOR}`;
-    meta === undefined ? console.error(colored) : console.error(colored, meta);
+    const metaStr = meta !== undefined ? ` ${formatMeta(meta)}` : "";
+    const colored = `${COLORS.error}${base}${metaStr}${RESET_COLOR}`;
+    console.error(colored);
   },
 };

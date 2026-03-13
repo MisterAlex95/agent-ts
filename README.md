@@ -11,9 +11,9 @@
 1. Clone this repository into a local directory.
 2. Copy `.env` and set `QDRANT_URL` (e.g. `https://qdrant.adserver.fr`) and other values as needed.
 3. Ensure Ollama is running and the configured model is pulled:
-   ```bash
+  ```bash
    ollama pull qwen2.5-coder
-   ```
+  ```
 
 ## Install dependencies
 
@@ -40,51 +40,44 @@ npm test
 ### End-to-end test (Ollama + Qdrant + server)
 
 1. **Ollama** running with chat + embedding models:
-   ```bash
+  ```bash
    ollama pull qwen2.5-coder
    ollama pull nomic-embed-text
-   ```
-
-2. **`.env`** with `QDRANT_URL` (and optionally `AGENT_BASE_URL` if not local).
-
+  ```
+2. `**.env**` with `QDRANT_URL` (and optionally `AGENT_BASE_URL` if not local).
 3. **Put some code in `workspace/`** so the index has something to search:
-   ```bash
+  ```bash
    echo 'export function hello() { return "world"; }' > workspace/sample.ts
    mkdir -p workspace/src
    echo 'console.log("ok");' > workspace/src/index.ts
-   ```
-
+  ```
 4. **Start the server** (in one terminal):
-   ```bash
+  ```bash
    npm run dev
-   ```
-
+  ```
 5. **Health check:**
-   ```bash
+  ```bash
    curl http://localhost:3000/health
-   ```
+  ```
    Expected: `{"status":"ok"}`
-
 6. **Index the workspace** (creates/updates the Qdrant collection):
-   ```bash
+  ```bash
    curl -X POST http://localhost:3000/index
-   ```
+  ```
    Expected: `{"indexedFiles":2,"indexedChunks":...}` (or similar, with `indexedFiles` ≥ 1).
-
 7. **Run the agent** on a task:
-   ```bash
+  ```bash
    curl -X POST http://localhost:3000/tasks \
      -H "Content-Type: application/json" \
      -d '{"task": "List all TypeScript files in the project"}'
-   ```
+  ```
    Expected: JSON with `finished: true`, `steps` ≥ 1, and `memory.actions` showing tool calls (e.g. `searchCode`, then `listFiles` or `readFile`, etc.). If something fails (Ollama, Qdrant), the response will have an `error` field.
-
 8. **Optional:** more steps or another task:
-   ```bash
+  ```bash
    curl -X POST http://localhost:3000/tasks \
      -H "Content-Type: application/json" \
      -d '{"task": "What does sample.ts export?", "maxSteps": 5}'
-   ```
+  ```
 
 ## HTTP API reference
 
@@ -114,7 +107,6 @@ npm test
   - **task** (string, required): natural language description of the development task.
   - **maxSteps** (number, optional): maximum number of tool steps for this run (default: 8).
   - **goalType** (string, optional): high-level intent for the planner. Values: `generic` (default), `runTestsAndFix`, `addEndpoint`, `improveTypes`.
-
 - **Response 200 (JSON)**:
   ```json
   {
@@ -143,10 +135,49 @@ npm test
     "answer": "`sample.ts` exports a function named `hello` that returns the string \"world\"."
   }
   ```
-
 - **Error responses**:
   - **400**: `{"error": "Missing or invalid 'task' in body"}`
   - **500**: `{"error": "human-readable error message (Ollama, Qdrant, etc.)"}`
+
+### Scenario examples
+
+These examples show how to call the agent with explicit `goalType` for common workflows.
+
+#### Improve TypeScript types (`improveTypes`)
+
+```bash
+wcurl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Tighten the types in src/api/routes.ts and fix obvious any/usages.",
+    "goalType": "improveTypes",
+    "maxSteps": 8
+  }'
+```
+
+#### Add or modify an API endpoint (`addEndpoint`)
+
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Add a /projects/:id/tasks endpoint that returns the tasks for a given project.",
+    "goalType": "addEndpoint",
+    "maxSteps": 10
+  }'
+```
+
+#### Fix failing tests (`runTestsAndFix`)
+
+```bash
+curl -X POST http://localhost:3000/tasks \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "Run the test suite and fix the failing tests until everything passes or is clearly blocked.",
+    "goalType": "runTestsAndFix",
+    "maxSteps": 12
+  }'
+```
 
 ## High-level architecture
 
@@ -165,3 +196,4 @@ npm test
   - splits files into code chunks
   - gets embeddings via Ollama
   - stores vectors with metadata in Qdrant
+
