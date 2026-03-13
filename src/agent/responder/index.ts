@@ -1,6 +1,6 @@
 import { ollamaChat } from "../../llm/ollamaClient.js";
 import type { AgentMemorySnapshot } from "../memory/index.js";
-import { RESPONDER_SYSTEM_PROMPT, getResponderUserPrompt } from "../../prompts/responder.js";
+import { getResponderSystemPrompt, getResponderUserPrompt } from "../../prompts/responder.js";
 
 export async function summarizeRun(
   task: string,
@@ -20,7 +20,7 @@ export async function summarizeRun(
 
   const { content } = await ollamaChat(
     [
-      { role: "system", content: RESPONDER_SYSTEM_PROMPT },
+      { role: "system", content: getResponderSystemPrompt() },
       { role: "user", content: userPrompt },
     ],
     { temperature: 0.2 },

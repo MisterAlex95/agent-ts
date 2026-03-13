@@ -6,10 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const templatesDir = path.join(__dirname, "templates");
 nunjucks.configure(templatesDir, { autoescape: false });
 
-export function getResponderSystemPrompt(): string {
-  return nunjucks.render("responder-system.njk");
+export function getInferGoalTypePrompt(task: string): string {
+  return nunjucks.render("infer-goal-type.njk", { task });
 }
 
-export function getResponderUserPrompt(task: string, actionsDescription: string): string {
-  return nunjucks.render("responder-user.njk", { task, actionsDescription });
-}

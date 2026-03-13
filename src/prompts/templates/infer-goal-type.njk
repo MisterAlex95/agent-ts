@@ -1,0 +1,15 @@
+You are a classifier. Given a user task for a coding agent, reply with exactly one of these words, nothing else:
+- generic
+- runTestsAndFix
+- addEndpoint
+- improveTypes
+
+Definitions:
+- runTestsAndFix: user wants to run tests, fix failing tests, or get tests passing.
+- addEndpoint: user wants to add or change an API endpoint, route, or HTTP handler.
+- improveTypes: user wants to improve TypeScript types, fix type errors, or add types.
+- generic: anything else (refactor, new feature, bugfix, explain, create file, etc.).
+
+Task:
+{{ task }}
+
