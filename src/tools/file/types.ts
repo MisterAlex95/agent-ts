@@ -57,6 +57,15 @@ export interface EditLinesResult {
   message: string;
 }
 
+export interface MkdirResult {
+  path: string;
+}
+
+export interface TouchResult {
+  path: string;
+  existed: boolean;
+}
+
 export interface DeleteFileResult {
   path: string;
   deleted: true;

@@ -1,15 +1,15 @@
 import { vi } from "vitest";
 
 vi.mock("../src/llm/ollamaClient.js", () => ({
-  ollamaChat: vi.fn(),
+  ollamaChatStream: vi.fn(),
 }));
 
 import { planNextAction } from "../src/agent/planning/planner.js";
-import { ollamaChat } from "../src/llm/ollamaClient.js";
+import { ollamaChatStream } from "../src/llm/ollamaClient.js";
 
 describe("planner", () => {
   it("returns searchCode action when LLM returns searchCode JSON", async () => {
-    vi.mocked(ollamaChat).mockResolvedValueOnce({
+    vi.mocked(ollamaChatStream).mockResolvedValueOnce({
       content: '{"tool":"searchCode","params":{"query":"find API routes"}}',
     });
 
@@ -26,7 +26,7 @@ describe("planner", () => {
   });
 
   it("returns null when LLM returns DONE", async () => {
-    vi.mocked(ollamaChat).mockResolvedValueOnce({
+    vi.mocked(ollamaChatStream).mockResolvedValueOnce({
       content: '{"tool":"DONE","params":{}}',
     });
 
@@ -41,7 +41,7 @@ describe("planner", () => {
   });
 
   it("returns listFiles action when LLM returns listFiles JSON", async () => {
-    vi.mocked(ollamaChat).mockResolvedValueOnce({
+    vi.mocked(ollamaChatStream).mockResolvedValueOnce({
       content: '{"tool":"listFiles","params":{"path":"."}}',
     });
 

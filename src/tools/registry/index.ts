@@ -18,6 +18,8 @@ const TOOL_DEFS: ToolDef[] = [
   { name: "readFile", params: "path: string (relative path)", readOnly: true, dryRunOnly: false },
   { name: "writeFile", params: "path: string, content: string (code must be indented, multiple lines)", readOnly: false, dryRunOnly: true },
   { name: "editLines", params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; use when you have line numbers from search)", readOnly: false, dryRunOnly: true },
+  { name: "mkdir", params: "path: string (directory path; creates recursively)", readOnly: false, dryRunOnly: true },
+  { name: "touch", params: "path: string (file path; creates if missing; updates mtime)", readOnly: false, dryRunOnly: true },
   { name: "searchReplace", params: "path: string, oldText: string, newText: string (exact snippet to find and replace; first occurrence only)", readOnly: false, dryRunOnly: true },
   { name: "appendFile", params: "path: string, content: string (append content at end of file; no line numbers)", readOnly: false, dryRunOnly: true },
   { name: "deleteFile", params: "path: string (single file only; for directories use deleteFolder)", readOnly: false, dryRunOnly: true },

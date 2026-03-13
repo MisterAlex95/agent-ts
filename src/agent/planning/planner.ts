@@ -45,6 +45,42 @@ function extractJson(text: string): unknown {
   try {
     return JSON.parse(raw) as unknown;
   } catch {
+    // Common streaming artifact: multiple JSON objects concatenated.
+    // Try to parse the first complete JSON object by brace matching.
+    const firstBrace = raw.indexOf("{");
+    if (firstBrace !== -1) {
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      for (let i = firstBrace; i < raw.length; i++) {
+        const ch = raw[i];
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (ch === "\\") {
+            escaped = true;
+          } else if (ch === "\"") {
+            inString = false;
+          }
+          continue;
+        }
+        if (ch === "\"") {
+          inString = true;
+          continue;
+        }
+        if (ch === "{") depth++;
+        if (ch === "}") depth--;
+        if (depth === 0 && i > firstBrace) {
+          const candidate = raw.slice(firstBrace, i + 1);
+          try {
+            return JSON.parse(candidate) as unknown;
+          } catch {
+            break;
+          }
+        }
+      }
+    }
+
     const fallback = raw.match(/\{\s*"tool"\s*:\s*"[^"]+"\s*,\s*"params"\s*:\s*\{[^}]*\}\s*\}/);
     if (fallback) {
       try {
@@ -118,6 +154,11 @@ function parsePlannedAction(
     case "readFile":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : ".";
+      break;
+    case "mkdir":
+    case "touch":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
       break;
     case "writeFile":
       normalized.path =
@@ -259,6 +300,14 @@ export async function planNextAction(
         onChunk: ctx.onPlannerChunk,
       });
       const data = extractJson(content);
+      // If the model says DONE, do not "retry": just end planning cleanly.
+      if (
+        data &&
+        typeof data === "object" &&
+        (data as Record<string, unknown>).tool === "DONE"
+      ) {
+        return null;
+      }
       const parsed = parsePlannedAction(data, allowedTools);
       if (parsed) return parsed;
       if (attempt === 0) {

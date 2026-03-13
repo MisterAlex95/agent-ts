@@ -5,6 +5,8 @@ export { appendFileTool } from "./appendFile.js";
 export { patchFileTool } from "./patchFile.js";
 export { searchReplaceTool } from "./searchReplace.js";
 export { editLinesTool } from "./editLines.js";
+export { mkdirTool } from "./mkdir.js";
+export { touchTool } from "./touch.js";
 export { deleteFileTool } from "./deleteFile.js";
 export { deleteFilesTool } from "./deleteFiles.js";
 export { deleteFolderTool } from "./deleteFolder.js";
@@ -26,6 +28,8 @@ export type {
   PatchFileResult,
   EditLineOp,
   EditLinesResult,
+  MkdirResult,
+  TouchResult,
   DeleteFileResult,
   DeleteFilesResult,
   DeleteFolderResult,

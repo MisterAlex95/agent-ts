@@ -154,6 +154,35 @@ export async function writeWorkspaceFile(
   await fs.writeFile(fullPath, content, "utf8");
 }
 
+export async function mkdirWorkspaceFolder(relativePath: string): Promise<void> {
+  const normalized = normalizeRelativePath(relativePath);
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) {
+    throw new Error(`Path escapes workspace: ${relativePath}`);
+  }
+  await fs.mkdir(fullPath, { recursive: true });
+}
+
+export async function touchWorkspaceFile(relativePath: string): Promise<{ existed: boolean }> {
+  const normalized = normalizeRelativePath(relativePath);
+  const fullPath = path.resolve(ROOT, normalized);
+  if (!isPathWithinWorkspace(ROOT, fullPath)) {
+    throw new Error(`Path escapes workspace: ${relativePath}`);
+  }
+  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+  let existed = true;
+  try {
+    await fs.access(fullPath);
+  } catch {
+    existed = false;
+  }
+  const fh = await fs.open(fullPath, "a");
+  await fh.close();
+  const now = new Date();
+  await fs.utimes(fullPath, now, now);
+  return { existed };
+}
+
 export async function deleteWorkspaceFile(relativePath: string): Promise<void> {
   const normalized = normalizeRelativePath(relativePath);
   const fullPath = path.resolve(ROOT, normalized);

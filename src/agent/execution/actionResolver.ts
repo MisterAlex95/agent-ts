@@ -4,6 +4,8 @@ import {
   writeFileTool,
   listFilesTool,
   editLinesTool,
+  mkdirTool,
+  touchTool,
   searchReplaceTool,
   appendFileTool,
   deleteFileTool,
@@ -88,6 +90,14 @@ export async function executeTool(
           }))
         : [];
       return editLinesTool(path, normalized);
+    }
+    case "mkdir": {
+      const { path } = params as { path: string };
+      return mkdirTool(path ?? "");
+    }
+    case "touch": {
+      const { path } = params as { path: string };
+      return touchTool(path ?? "");
     }
     case "searchReplace": {
       const { path, oldText, newText } = params as { path: string; oldText: string; newText: string };
