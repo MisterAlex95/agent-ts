@@ -1,11 +1,18 @@
-import { ollamaChat } from "../../llm/ollamaClient.js";
+import { getLLMProvider } from "../../llm/provider.js";
 import type { AgentMemorySnapshot } from "../memory/index.js";
 import { getResponderSystemPrompt, getResponderUserPrompt } from "../../prompts/responder.js";
 import { logger } from "../../logger.js";
 
+export interface SummarizeRunOptions {
+  onChunk?: (delta: string) => void;
+  signal?: AbortSignal;
+  seed?: number;
+}
+
 export async function summarizeRun(
   task: string,
   memory: AgentMemorySnapshot,
+  options?: SummarizeRunOptions,
 ): Promise<string> {
   const actionsDescription =
     memory.actions
@@ -20,12 +27,18 @@ export async function summarizeRun(
   const userPrompt = getResponderUserPrompt(task, actionsDescription);
 
   try {
-    const { content } = await ollamaChat(
+    const llm = getLLMProvider();
+    const { content } = await llm.chatStream(
       [
         { role: "system", content: getResponderSystemPrompt() },
         { role: "user", content: userPrompt },
       ],
-      { temperature: 0.2 },
+      {
+        temperature: 0.2,
+        seed: options?.seed ?? 42,
+        onChunk: options?.onChunk,
+        signal: options?.signal,
+      },
     );
 
     return content.trim();
@@ -34,7 +47,6 @@ export async function summarizeRun(
       task,
       error,
     });
-    // Fallback: at least return the raw actions so the caller sees something.
     return `Summary failed due to an error. Raw actions:\n\n${actionsDescription}`;
   }
 }

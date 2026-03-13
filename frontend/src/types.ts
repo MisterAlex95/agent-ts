@@ -21,15 +21,37 @@ export type StepEventType =
   | "started"
   | "done"
   | "error"
-  | "cancelled";
+  | "cancelled"
+  | "answer_delta";
+
+export interface FileChangeDisplay {
+  kind: "file_change";
+  filePath: string;
+  diffSummary: { added: number; removed: number };
+  snippet: string;
+}
 
 export interface StepEvent {
   type: StepEventType;
   step?: number;
   tool?: string;
   params?: unknown;
+  /** Truncated tool output (when type is "step") */
+  result?: string;
   error?: string;
   delta?: string;
+  /** Set when type is "started"; use for cancel via DELETE /tasks/:id */
+  taskId?: string;
+  /** Optional display hint from backend (e.g. file change diff) */
+  display?: FileChangeDisplay;
+}
+
+export interface TraceEntry {
+  timestamp: string;
+  tool: string;
+  params?: unknown;
+  error?: string;
+  outputTruncated?: string;
 }
 
 export interface AgentRun {
@@ -43,8 +65,16 @@ export interface AgentRun {
   createdAt: string;
   status: "running" | "finished" | "error" | "cancelled";
   steps: StepEvent[];
+  /** Planner thinking text accumulated before each step (index matches steps) */
+  stepThoughts?: string[];
+  /** Current planner stream buffer; cleared when a step is received */
+  plannerStream?: string;
   answer?: string;
   errorMessage?: string;
+  /** Server task id from stream "started" event; used to cancel run */
+  taskId?: string;
+  /** Verbose trace (tool, params, output) when verbose was true */
+  trace?: TraceEntry[];
 }
 
 export interface ServerRunRecord {

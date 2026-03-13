@@ -6,6 +6,11 @@ import type {
   ServerRunRecord,
 } from "../types";
 
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface TaskRequestBody {
   task: string;
   mode: RunMode;
@@ -14,6 +19,8 @@ export interface TaskRequestBody {
   dryRun: boolean;
   goalType?: GoalType;
   timeoutMs?: number;
+  /** Last N messages for multi-turn context (capped server-side) */
+  history?: ConversationMessage[];
 }
 
 export interface StreamCallbacks {
@@ -39,6 +46,32 @@ export async function getMetrics(): Promise<MetricsSnapshot | null> {
   }
 }
 
+export interface WorkspaceEntry {
+  name: string;
+  path: string;
+  type: "file" | "directory";
+}
+
+export async function listProjectFiles(path = "."): Promise<{ root: string; entries: WorkspaceEntry[] }> {
+  const params = new URLSearchParams({ path });
+  const res = await fetch(`/files/list?${params.toString()}`);
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `List failed: ${res.status}`);
+  }
+  return res.json() as Promise<{ root: string; entries: WorkspaceEntry[] }>;
+}
+
+export async function readProjectFile(path: string): Promise<string> {
+  const params = new URLSearchParams({ path });
+  const res = await fetch(`/files/read?${params.toString()}`);
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Read failed: ${res.status}`);
+  }
+  return res.text();
+}
+
 export async function getRecentRuns(limit = 10): Promise<ServerRunRecord[]> {
   try {
     const params = new URLSearchParams({ limit: String(limit) });
@@ -48,6 +81,19 @@ export async function getRecentRuns(limit = 10): Promise<ServerRunRecord[]> {
     return Array.isArray(data.runs) ? data.runs : [];
   } catch {
     return [];
+  }
+}
+
+export async function cancelTask(taskId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/tasks/${taskId}`, { method: "DELETE" });
+    if (res.status === 202) {
+      const data = (await res.json()) as { cancelled?: boolean };
+      return data.cancelled === true;
+    }
+    return false;
+  } catch {
+    return false;
   }
 }
 

@@ -85,6 +85,7 @@ describe("agentLoop", () => {
     expect(summarizeRun).toHaveBeenCalledWith(
       "List files and read package.json",
       expect.objectContaining({ task: "List files and read package.json", actions: expect.any(Array) }),
+      expect.any(Object),
     );
   });
 

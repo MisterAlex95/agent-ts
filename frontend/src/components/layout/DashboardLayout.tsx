@@ -1,17 +1,18 @@
 import React from "react";
 import type { MetricsSnapshot } from "../../types";
 
-const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "project" | "settings"; label: string }[] = [
+const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "project" | "files" | "settings"; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "runs", label: "Runs" },
   { id: "project", label: "Project" },
+  { id: "files", label: "Files" },
   { id: "settings", label: "Settings" },
 ];
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
-  activePage: "dashboard" | "runs" | "project" | "settings";
-  onNavigate: (page: "dashboard" | "runs" | "project" | "settings") => void;
+  activePage: "dashboard" | "runs" | "project" | "files" | "settings";
+  onNavigate: (page: "dashboard" | "runs" | "project" | "files" | "settings") => void;
   health: "online" | "offline";
   metrics: MetricsSnapshot | null;
 };

@@ -8,15 +8,24 @@ export interface OllamaChatMessage {
   content: string;
 }
 
+export interface OllamaChatOptions {
+  seed?: number;
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+}
+
 export interface OllamaChatRequest {
   model?: string;
   messages: OllamaChatMessage[];
-  temperature?: number;
   stream?: boolean;
+  options?: OllamaChatOptions;
 }
 
 export interface OllamaChatResponse {
   content: string;
+  /** True when the stream was aborted and content is partial */
+  partial?: boolean;
 }
 
 export interface OllamaEmbeddingResponse {
@@ -55,7 +64,7 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 
 export async function ollamaChat(
   messages: OllamaChatMessage[],
-  options?: { model?: string; temperature?: number },
+  options?: Omit<OllamaChatStreamOptions, "onChunk">,
 ): Promise<OllamaChatResponse> {
   return ollamaChatStream(messages, { ...options, onChunk: undefined });
 }
@@ -63,8 +72,13 @@ export async function ollamaChat(
 export interface OllamaChatStreamOptions {
   model?: string;
   temperature?: number;
+  seed?: number;
+  top_p?: number;
+  top_k?: number;
   /** Called with each streamed text delta for better perceived latency */
   onChunk?: (delta: string) => void;
+  /** When aborted, stream stops and returns partial content */
+  signal?: AbortSignal;
 }
 
 /**
@@ -83,8 +97,13 @@ export async function ollamaChatStream(
   const payload: OllamaChatRequest = {
     model,
     messages,
-    temperature,
     stream: true,
+    options: {
+      temperature,
+      ...(options?.seed !== undefined && { seed: options.seed }),
+      ...(options?.top_p !== undefined && { top_p: options.top_p }),
+      ...(options?.top_k !== undefined && { top_k: options.top_k }),
+    },
   };
 
   const url = `${AGENT_BASE_URL}/api/chat`;
@@ -95,18 +114,32 @@ export async function ollamaChatStream(
     messagesCount: messages.length,
   });
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), LLM_HEADERS_TIMEOUT_MS);
+  const userSignal = options?.signal;
+  if (userSignal) {
+    if (userSignal.aborted) {
+      clearTimeout(timeoutId);
+      return { content: "", partial: true };
+    }
+    userSignal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
   let res: Response;
   try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), LLM_HEADERS_TIMEOUT_MS);
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
-    clearTimeout(t);
+    clearTimeout(timeoutId);
   } catch (err) {
+    clearTimeout(timeoutId);
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    if (isAbort) {
+      return { content: "", partial: true };
+    }
     logger.error("LLM chat fetch failed", {
       url,
       model,
@@ -167,11 +200,16 @@ export async function ollamaChatStream(
         // ignore
       }
     }
+    return { content: fullContent };
+  } catch (err) {
+    const isAbort = err instanceof Error && err.name === "AbortError";
+    if (isAbort) {
+      return { content: fullContent, partial: true };
+    }
+    throw err;
   } finally {
     reader.releaseLock();
   }
-
-  return { content: fullContent };
 }
 
 async function ollamaEmbed(

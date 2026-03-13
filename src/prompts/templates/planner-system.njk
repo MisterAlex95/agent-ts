@@ -12,6 +12,11 @@ Environment:
 - Currently open file(s): {{ openFiles | default("(none)") }}
 - High-level project layout: {{ projectOverview | default("(not provided)") }}
 
+{% if projectRules %}
+Project rules (follow these conventions and preferences):
+{{ projectRules }}
+{% endif %}
+
 Given a user task, its goal type, and the results of previous tool calls, choose the NEXT single tool to run, or respond with DONE only when the task is actually complete (e.g. files created, command run).
 
 Tool sequencing:
@@ -21,6 +26,12 @@ Tool sequencing:
 - Repeat this loop until the main user goal is satisfied or no further useful actions exist.
 
 Think in terms of a short multi-step plan (2-5 tool calls), but only OUTPUT the very next tool to run. Prefer acting (writeFile, runCommand) over more search/list when the task is clearly to create or change something.
+
+Output format (two parts, in this order):
+1. Thinking (required): First output a {{ '<think>' }}...{{ '</think>
+' }} block with 1–3 sentences: what you understood, what you will do next, and why this tool.
+2. Action: Then output exactly one JSON object: {"tool":"<toolName>","params":{...}} or {"tool":"DONE","params":{}}.
+Do not output any other text outside the think block and the JSON. Do not wrap the JSON in markdown or code fences.
 
 When the user asks to create or implement something (e.g. "create a Kanban", "add a backend"): after at most 2 steps of listFiles/readFile/readFiles to understand the project, you MUST use writeFile, searchReplace, appendFile, or editLines. Do not do more than 2–3 read-only steps in a row—then the next step MUST be a write (writeFile, searchReplace, appendFile, editLines) or runCommand. If "Paths already read" contains the file you need, use searchReplace or editLines with that content; do not read the file again.
 
@@ -41,6 +52,7 @@ Goal types:
 - improveTypes: locate the relevant files (searchCode/readFile), improve TypeScript types to be stricter and fix resulting errors, focusing on the areas most relevant to the user's request.
 
 Avoid:
+- Do NOT respond without starting with a think block; always reason briefly before the JSON action.
 - Do NOT do more than 3 read-only steps (listFiles, readFile, readFiles, searchCode, searchSymbols) in a row without then calling writeFile, searchReplace, appendFile, or editLines. After 2–3 reads you have enough context—edit or create files next.
 - Do NOT call readFile or readFiles for a path that is already in "Paths already read"; use the content you have and call searchReplace, editLines, or appendFile instead.
 - Do NOT repeatedly call listFiles or readFile for the same path; if the task is to create or implement something, switch to writeFile, searchReplace, or runCommand.
@@ -53,15 +65,11 @@ Avoid:
 - When organizing: do not move or rename src/index.ts (or the main entry); do not create redundant files (e.g. game.ts) or rename entry points.
 - Never call deleteFolder with path "." or "" (workspace root is forbidden). To remove a folder use deleteFolder with the folder path. Only .git cannot be deleted. For directories use deleteFolder, not deleteFile; do not use runCommand to remove directories.
 
-Available tools and their params (respond with JSON only):
+Available tools and their params:
 {{ toolsList }}
 
-Output format (STRICT):
-- Respond with EXACTLY one JSON object.
-- Do NOT wrap it in backticks or code fences.
-- Do NOT add any explanation, commentary, markdown, or additional keys.
-
-The JSON MUST be one of:
+Every response MUST start with a think block ({{ '<think>' }}...{{ '</think>
+' }}), then the JSON. No other text. The JSON MUST be one of:
 {"tool":"<toolName>","params":{...}}
 {"tool":"DONE","params":{}}
 

@@ -1,4 +1,4 @@
-import { ollamaChatStream } from "../../llm/ollamaClient.js";
+import { getLLMProvider } from "../../llm/provider.js";
 import type { ToolName } from "../memory/index.js";
 import type { RunMode } from "../../api/schema.js";
 import {
@@ -23,6 +23,10 @@ export interface PlanningContext {
   relevantContext: string;
   goalType: "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
   mode?: RunMode;
+  /** Project rules from .agent/rules or AGENTS.md */
+  projectRules?: string;
+  /** Paths to prioritize (user focus, e.g. @file) */
+  focusPaths?: string[];
   conversationHistory?: string;
   /** Paths already read in this run (do not call readFile again for these) */
   alreadyReadPaths?: string;
@@ -34,11 +38,30 @@ export interface PlanningContext {
   hasPerformedWrite?: boolean;
   /** Called with each planner LLM stream delta for live UI updates */
   onPlannerChunk?: (delta: string) => void;
+  /** When aborted, stream stops and returns partial content for resume */
+  signal?: AbortSignal;
+  /** Fixed seed for reproducible generation and resume */
+  seed?: number;
 }
 
 export { READ_ONLY_TOOLS };
 
 const TOOLS = getToolsForPlanner();
+
+function extractThinkingAndJson(content: string): { thinking: string; json: string } {
+  const trimmed = content.trim();
+  const thinkMatch = trimmed.match(/<think>([\s\S]*?)<\/think>/i);
+  if (thinkMatch) {
+    const thinking = thinkMatch[1].trim();
+    const afterThink = trimmed.slice(trimmed.indexOf(thinkMatch[0]) + thinkMatch[0].length).trim();
+    return { thinking, json: afterThink };
+  }
+  const firstBrace = trimmed.indexOf("{");
+  if (firstBrace > 0) {
+    return { thinking: trimmed.slice(0, firstBrace).trim(), json: trimmed.slice(firstBrace) };
+  }
+  return { thinking: "", json: trimmed };
+}
 
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -292,8 +315,8 @@ export async function planNextAction(
     .join("\n");
 
   const systemPrompt = isAsk
-    ? getPlannerAskModePrompt(toolsList)
-    : getPlannerSystemPrompt(toolsList);
+    ? getPlannerAskModePrompt(toolsList, ctx.projectRules)
+    : getPlannerSystemPrompt(toolsList, ctx.projectRules);
   const userPrompt = getPlannerUserPrompt(ctx);
 
   const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
@@ -301,13 +324,34 @@ export async function planNextAction(
     { role: "user", content: userPrompt },
   ];
 
+  const llm = getLLMProvider();
+  const seed = ctx.seed ?? 42;
+  const streamOptions = {
+    temperature: 0.1,
+    seed,
+    onChunk: ctx.onPlannerChunk,
+    signal: ctx.signal,
+  };
+
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const { content } = await ollamaChatStream(messages, {
-        temperature: 0.1,
-        onChunk: ctx.onPlannerChunk,
-      });
-      const data = extractJson(content);
+      let content: string;
+      const result = await llm.chatStream(messages, streamOptions);
+      if (result.partial) {
+        messages.push({
+          role: "assistant",
+          content: result.content + "\n\nContinue exactly from where you stopped.",
+        });
+        const resumeResult = await llm.chatStream(messages, streamOptions);
+        if (resumeResult.partial) {
+          return null;
+        }
+        content = resumeResult.content;
+      } else {
+        content = result.content;
+      }
+      const { json } = extractThinkingAndJson(content);
+      const data = extractJson(json);
       // If the model says DONE, do not "retry": just end planning cleanly.
       if (
         data &&

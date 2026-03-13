@@ -1,4 +1,4 @@
-import { ollamaChat } from "../../llm/ollamaClient.js";
+import { getLLMProvider } from "../../llm/provider.js";
 import type { GoalType } from "../../api/schema.js";
 import { getInferGoalTypePrompt } from "../../prompts/infer-goal-type.js";
 import { logger } from "../../logger.js";
@@ -16,7 +16,8 @@ export async function inferGoalType(task: string): Promise<GoalType> {
 
   try {
     const prompt = getInferGoalTypePrompt(trimmed);
-    const { content } = await ollamaChat(
+    const llm = getLLMProvider();
+    const { content } = await llm.chat(
       [{ role: "user", content: prompt }],
       { temperature: 0 },
     );

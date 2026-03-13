@@ -3,11 +3,12 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RunsPage } from "./pages/RunsPage";
 import { ProjectPage } from "./pages/ProjectPage";
+import { FilesPage } from "./pages/FilesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import type { AgentRun, MetricsSnapshot, GoalType, RunMode, ServerRunRecord } from "./types";
-import { createTaskStream, getHealth, getMetrics, getRecentRuns } from "./api/client";
+import { createTaskStream, getHealth, getMetrics, getRecentRuns, cancelTask } from "./api/client";
 
-type PageId = "dashboard" | "runs" | "project" | "settings";
+type PageId = "dashboard" | "runs" | "project" | "files" | "settings";
 
 export const App: React.FC = () => {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
@@ -54,6 +55,7 @@ export const App: React.FC = () => {
       verbose: boolean;
       dryRun: boolean;
       timeoutMs?: number;
+      history?: Array<{ role: "user" | "assistant"; content: string }>;
     }) => {
       const id = crypto.randomUUID();
       const createdAt = new Date().toISOString();
@@ -83,22 +85,53 @@ export const App: React.FC = () => {
           dryRun: params.dryRun,
           goalType: params.goalType,
           timeoutMs: params.timeoutMs,
+          history: params.history,
         },
         {
           onEvent: (ev) => {
             setRuns((prev) =>
               prev.map((run) => {
                 if (run.id !== id) return run;
+                if (ev.type === "started" && ev.taskId) {
+                  return { ...run, taskId: ev.taskId };
+                }
+                if (ev.type === "planner_delta" && ev.delta) {
+                  return {
+                    ...run,
+                    plannerStream: (run.plannerStream ?? "") + ev.delta,
+                  };
+                }
+                if (ev.type === "answer_delta" && ev.delta) {
+                  return {
+                    ...run,
+                    answer: (run.answer ?? "") + ev.delta,
+                  };
+                }
                 if (ev.type === "step") {
+                  const thought = (run.plannerStream ?? "").trim();
                   return {
                     ...run,
                     steps: [...run.steps, ev],
+                    stepThoughts: [...(run.stepThoughts ?? []), thought],
+                    plannerStream: "",
                   };
                 }
                 if (ev.type === "done") {
+                  const doneEv = ev as {
+                    answer?: string;
+                    trace?: Array<{
+                      timestamp: string;
+                      tool: string;
+                      params?: unknown;
+                      error?: string;
+                      outputTruncated?: string;
+                    }>;
+                  };
                   return {
                     ...run,
                     status: "finished",
+                    answer: doneEv.answer ?? run.answer,
+                    trace: doneEv.trace,
                   };
                 }
                 if (ev.type === "error") {
@@ -137,10 +170,17 @@ export const App: React.FC = () => {
         runs={runs}
         activeRun={activeRun}
         onSelectRun={setSelectedRunId}
+        onCancelRun={(run) => {
+          if (run.taskId) void cancelTask(run.taskId);
+        }}
+        onStartRun={startRun}
+        isStarting={isStarting}
       />
     );
   } else if (activePage === "project") {
     pageNode = <ProjectPage />;
+  } else if (activePage === "files") {
+    pageNode = <FilesPage />;
   } else if (activePage === "settings") {
     pageNode = <SettingsPage />;
   } else {
@@ -151,6 +191,7 @@ export const App: React.FC = () => {
         health={health}
         metrics={metrics}
         recentServerRuns={serverRuns}
+        runs={runs}
       />
     );
   }

@@ -55,4 +55,38 @@ describe("planner", () => {
     expect(action?.tool).toBe("listFiles");
     expect(action?.params).toEqual({ path: "." });
   });
+
+  it("parses action when LLM returns think block then JSON", async () => {
+    const thinkClose = "</think>";
+    vi.mocked(ollamaChatStream).mockResolvedValueOnce({
+      content: "<think>Need to explore the project root first." + thinkClose + '\n{"tool":"listFiles","params":{"path":"."}}',
+    });
+
+    const action = await planNextAction({
+      task: "Show me the project layout",
+      recentObservations: "",
+      relevantContext: "",
+      goalType: "generic",
+    });
+
+    expect(action).not.toBeNull();
+    expect(action?.tool).toBe("listFiles");
+    expect(action?.params).toEqual({ path: "." });
+  });
+
+  it("returns null when LLM returns think block then DONE", async () => {
+    const thinkClose = "</think>";
+    vi.mocked(ollamaChatStream).mockResolvedValueOnce({
+      content: "<think>Task is complete." + thinkClose + '\n{"tool":"DONE","params":{}}',
+    });
+
+    const action = await planNextAction({
+      task: "Done task",
+      recentObservations: "did the thing",
+      relevantContext: "",
+      goalType: "generic",
+    });
+
+    expect(action).toBeNull();
+  });
 });

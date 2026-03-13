@@ -6,6 +6,8 @@ import { registerTask, abortTask, unregisterTask } from "./taskStore.js";
 import { recordRun, getMetrics, getRecentRuns } from "./metrics.js";
 import type { TaskRequestBody, TaskResponseBody, GoalType, RunMode } from "./schema.js";
 import { logger } from "../logger.js";
+import { getWorkspaceRoot, listWorkspaceDirectEntries, readWorkspaceFile } from "../runtime/workspaceManager.js";
+import { isProtectedPath } from "../tools/file/helpers.js";
 
 const MAX_STEPS_MIN = 1;
 const MAX_STEPS_MAX = 64;
@@ -84,6 +86,11 @@ export function registerRoutes(app: Express): void {
 
     const streamStart = Date.now();
     try {
+      const focusPaths =
+        Array.isArray(body.focusPaths) &&
+        body.focusPaths.every((p) => typeof p === "string")
+          ? (body.focusPaths as string[])
+          : undefined;
       const result = await runAgentLoop(body.task, {
         maxSteps,
         goalType,
@@ -92,9 +99,11 @@ export function registerRoutes(app: Express): void {
         dryRun: body.dryRun,
         timeoutMs,
         history: Array.isArray(body.history) ? body.history : undefined,
+        focusPaths,
         signal: controller.signal,
         onStep: (ev) => writeSSE(res, { type: "step", ...ev }),
         onPlannerChunk: (delta) => writeSSE(res, { type: "planner_delta", delta }),
+        onAnswerChunk: (delta) => writeSSE(res, { type: "answer_delta", delta }),
       });
       if (result.cancelled) {
         writeSSE(res, { type: "cancelled", ...result });
@@ -186,6 +195,11 @@ export function registerRoutes(app: Express): void {
         verbose: body.verbose,
         dryRun: body.dryRun,
       });
+      const focusPaths =
+        Array.isArray(body.focusPaths) &&
+        body.focusPaths.every((p) => typeof p === "string")
+          ? (body.focusPaths as string[])
+          : undefined;
       const result: TaskResponseBody = await runAgentLoop(body.task, {
         maxSteps,
         goalType,
@@ -194,6 +208,7 @@ export function registerRoutes(app: Express): void {
         dryRun: body.dryRun,
         timeoutMs,
         history: Array.isArray(body.history) ? body.history : undefined,
+        focusPaths,
       });
       recordRun({
         steps: result.steps,
@@ -239,6 +254,42 @@ export function registerRoutes(app: Express): void {
         mode: "Agent",
         error: message,
       });
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/files/list", async (req: Request, res: Response) => {
+    const pathParam = typeof req.query.path === "string" ? req.query.path : ".";
+    try {
+      const root = getWorkspaceRoot();
+      const entries = await listWorkspaceDirectEntries(pathParam);
+      res.json({ root, entries });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.debug("GET /files/list failed", { path: pathParam, error: message });
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/files/read", async (req: Request, res: Response) => {
+    const pathParam = typeof req.query.path === "string" ? req.query.path : "";
+    if (!pathParam.trim()) {
+      res.status(400).json({ error: "Missing or invalid path" });
+      return;
+    }
+    if (isProtectedPath(pathParam)) {
+      res.status(403).json({ error: "Access to this path is not allowed" });
+      return;
+    }
+    try {
+      const content = await readWorkspaceFile(pathParam);
+      const maxChars = 100_000;
+      const truncated = content.length > maxChars;
+      const snippet = truncated ? content.slice(0, maxChars) + "\n\n... (truncated)" : content;
+      res.type("text/plain").send(snippet);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.debug("GET /files/read failed", { path: pathParam, error: message });
       res.status(500).json({ error: message });
     }
   });

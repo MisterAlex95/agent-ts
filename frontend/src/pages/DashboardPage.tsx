@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import type { GoalType, MetricsSnapshot, RunMode, ServerRunRecord } from "../types";
+import type { AgentRun, GoalType, MetricsSnapshot, RunMode, ServerRunRecord } from "../types";
 
 type DashboardPageProps = {
   onStartRun: (params: {
@@ -10,11 +10,13 @@ type DashboardPageProps = {
     verbose: boolean;
     dryRun: boolean;
     timeoutMs?: number;
+    history?: Array<{ role: "user" | "assistant"; content: string }>;
   }) => void;
   isStarting: boolean;
   health: "online" | "offline";
   metrics: MetricsSnapshot | null;
   recentServerRuns: ServerRunRecord[];
+  runs: AgentRun[];
 };
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({
@@ -23,6 +25,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   health,
   metrics,
   recentServerRuns,
+  runs,
 }) => {
   const [task, setTask] = useState("");
   const [mode, setMode] = useState<RunMode>("Agent");
@@ -34,6 +37,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
   const submit = useCallback(() => {
     const trimmed = task.trim();
     if (!trimmed || isStarting) return;
+    const lastRun = runs[0];
+    const history =
+      lastRun?.status === "finished" && lastRun?.answer
+        ? [
+            { role: "user" as const, content: lastRun.task },
+            { role: "assistant" as const, content: lastRun.answer },
+          ]
+        : undefined;
     onStartRun({
       task: trimmed,
       mode,
@@ -41,8 +52,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
       maxSteps,
       verbose,
       dryRun,
+      history,
     });
-  }, [task, isStarting, onStartRun, mode, goalType, maxSteps, verbose, dryRun]);
+  }, [task, isStarting, onStartRun, mode, goalType, maxSteps, verbose, dryRun, runs]);
 
   const totalRuns = metrics?.totalRuns ?? 0;
   const last = metrics?.lastRun ?? null;

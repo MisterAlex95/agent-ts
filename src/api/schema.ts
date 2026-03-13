@@ -23,6 +23,8 @@ export interface TaskRequestBody {
   timeoutMs?: number;
   /** Last N messages for context (user + assistant). Capped server-side. */
   history?: ConversationMessage[];
+  /** Paths to prioritize for RAG and planner context (e.g. @file / @folder) */
+  focusPaths?: string[];
 }
 
 // Re-export AgentRunResult to make the HTTP contract explicit.
