@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { grepTool } from "../src/tools/file/grep.js";
+import { grepTool } from "../../../src/tools/file/grep.js";
 
-vi.mock("../src/runtime/workspaceManager.js", () => ({
+vi.mock("../../../src/runtime/workspaceManager.js", () => ({
   listWorkspaceFiles: vi.fn().mockResolvedValue(["src/a.ts", "src/b.ts"]),
   readWorkspaceFile: vi.fn().mockImplementation((path: string) => {
     if (path === "src/a.ts") return Promise.resolve("hello world\nfoo bar");

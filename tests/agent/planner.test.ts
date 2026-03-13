@@ -1,11 +1,11 @@
 import { vi } from "vitest";
 
-vi.mock("../src/llm/ollamaClient.js", () => ({
+vi.mock("../../src/llm/ollamaClient.js", () => ({
   ollamaChatStream: vi.fn(),
 }));
 
-import { planNextAction } from "../src/agent/planning/planner.js";
-import { ollamaChatStream } from "../src/llm/ollamaClient.js";
+import { planNextAction } from "../../src/agent/planning/planner.js";
+import { ollamaChatStream } from "../../src/llm/ollamaClient.js";
 
 describe("planner", () => {
   it("returns searchCode action when LLM returns searchCode JSON", async () => {
@@ -56,4 +56,3 @@ describe("planner", () => {
     expect(action?.params).toEqual({ path: "." });
   });
 });
-

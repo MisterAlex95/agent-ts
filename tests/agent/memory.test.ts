@@ -1,4 +1,4 @@
-import { AgentMemory } from "../src/agent/memory/index.js";
+import { AgentMemory } from "../../src/agent/memory/index.js";
 
 describe("AgentMemory", () => {
   it("records observations and snapshots state", () => {
@@ -18,4 +18,3 @@ describe("AgentMemory", () => {
     expect(snapshot.actions[0].timestamp).toBeDefined();
   });
 });
-

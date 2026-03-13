@@ -1,32 +1,32 @@
 import { vi } from "vitest";
 
-vi.mock("../src/rag/search.js", () => ({ semanticSearch: async () => [] }));
-vi.mock("../src/tools/search/index.js", () => ({
+vi.mock("../../src/rag/search.js", () => ({ semanticSearch: async () => [] }));
+vi.mock("../../src/tools/search/index.js", () => ({
   searchCodeTool: vi.fn().mockResolvedValue({ query: "", results: [] }),
   searchSymbolsTool: vi.fn().mockResolvedValue({ query: "", results: [] }),
 }));
 
-vi.mock("../src/agent/planning/planner.js", () => ({
+vi.mock("../../src/agent/planning/planner.js", () => ({
   planNextAction: vi.fn(),
   READ_ONLY_TOOLS: [],
 }));
 
-vi.mock("../src/agent/responder/index.js", () => ({
+vi.mock("../../src/agent/responder/index.js", () => ({
   summarizeRun: vi.fn().mockResolvedValue("Mocked final answer"),
 }));
 
-vi.mock("../src/agent/planning/inferGoalType.js", () => ({
+vi.mock("../../src/agent/planning/inferGoalType.js", () => ({
   inferGoalType: vi.fn().mockResolvedValue("generic"),
 }));
 
 const executeToolMock = vi.fn();
-vi.mock("../src/agent/execution/actionResolver.js", () => ({
+vi.mock("../../src/agent/execution/actionResolver.js", () => ({
   executeTool: (...args: unknown[]) => executeToolMock(...args),
 }));
 
-import { planNextAction } from "../src/agent/planning/planner.js";
-import { summarizeRun } from "../src/agent/responder/index.js";
-import { runAgentLoop } from "../src/agent/index.js";
+import { planNextAction } from "../../src/agent/planning/planner.js";
+import { summarizeRun } from "../../src/agent/responder/index.js";
+import { runAgentLoop } from "../../src/agent/index.js";
 
 describe("agentLoop", () => {
   it("runs steps until planner returns null and produces an answer", async () => {
@@ -111,4 +111,3 @@ describe("agentLoop", () => {
     expect(result.trace![0].tool).toBe("gitStatus");
   });
 });
-

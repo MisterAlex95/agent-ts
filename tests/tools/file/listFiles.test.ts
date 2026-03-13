@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { listFilesTool } from "../src/tools/file/listFiles.js";
+import { listFilesTool } from "../../../src/tools/file/listFiles.js";
 
 describe("listFilesTool", () => {
   it("lists files in the workspace root", async () => {

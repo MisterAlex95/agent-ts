@@ -86,12 +86,15 @@ export async function runTaskStream(task: string, options: RunOptions): Promise<
             case "timeout":
               console.error("\nTask timed out.");
               process.exit(1);
+              break;
             case "cancelled":
               console.error("\nTask cancelled.");
               process.exit(1);
+              break;
             case "error":
               console.error("Error:", data.error ?? "Unknown");
               process.exit(1);
+              break;
             default:
               break;
           }

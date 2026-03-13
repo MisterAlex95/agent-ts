@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fileExistsTool } from "../src/tools/file/fileExists.js";
+import { fileExistsTool } from "../../../src/tools/file/fileExists.js";
 
-vi.mock("../src/runtime/workspaceManager.js", () => ({
+vi.mock("../../../src/runtime/workspaceManager.js", () => ({
   workspaceFileExists: vi.fn().mockResolvedValue(true),
   getWorkspaceRoot: vi.fn().mockReturnValue("/ws"),
   listWorkspaceFiles: vi.fn(),

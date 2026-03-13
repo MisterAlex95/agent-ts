@@ -117,7 +117,7 @@ function extractSymbols(content: string, filePath: string): ExtractedSymbol[] {
     const line = lines[i];
     const lineNo = i + 1;
 
-    const classMatch = line.match(/\bclass\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*[{\{]?/);
+    const classMatch = line.match(/\bclass\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*[{]?/);
     if (classMatch) {
       symbols.push({
         name: classMatch[1],

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { searchReplaceTool } from "../src/tools/file/searchReplace.js";
+import { searchReplaceTool } from "../../../src/tools/file/searchReplace.js";
 
-vi.mock("../src/runtime/workspaceManager.js", () => ({
+vi.mock("../../../src/runtime/workspaceManager.js", () => ({
   readWorkspaceFile: vi.fn().mockResolvedValue("old snippet here"),
   writeWorkspaceFile: vi.fn().mockResolvedValue(undefined),
   backupFileIfExists: vi.fn().mockResolvedValue(undefined),

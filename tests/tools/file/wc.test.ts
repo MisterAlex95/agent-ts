@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { wcTool } from "../src/tools/file/wc.js";
+import { wcTool } from "../../../src/tools/file/wc.js";
 
-vi.mock("../src/runtime/workspaceManager.js", () => ({
+vi.mock("../../../src/runtime/workspaceManager.js", () => ({
   readWorkspaceFile: vi.fn().mockResolvedValue("one two three\nfour five"),
   getWorkspaceRoot: vi.fn().mockReturnValue("/ws"),
   listWorkspaceFiles: vi.fn(),

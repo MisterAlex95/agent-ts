@@ -289,11 +289,57 @@
   var planningBuffer = "";
   var planningFlushTimer = null;
   var PLANNING_FLUSH_MS = 60;
+
+  function planningBufferToSummary(buf) {
+    var parts = [];
+    var i = 0;
+    while (i < buf.length) {
+      var start = buf.indexOf("{\"tool\":", i);
+      if (start === -1) start = buf.indexOf('{"tool":', i);
+      if (start === -1) break;
+      var depth = 0;
+      var inStr = false;
+      var escape = false;
+      var j = start;
+      while (j < buf.length) {
+        var ch = buf[j];
+        if (inStr) {
+          if (escape) { escape = false; j++; continue; }
+          if (ch === "\\") { escape = true; j++; continue; }
+          if (ch === "\"") { inStr = false; j++; continue; }
+          j++;
+          continue;
+        }
+        if (ch === "\"") { inStr = true; j++; continue; }
+        if (ch === "{") depth++;
+        if (ch === "}") depth--;
+        if (depth === 0 && j > start) {
+          var block = buf.slice(start, j + 1);
+          try {
+            var obj = JSON.parse(block);
+            var tool = obj && obj.tool;
+            if (tool === "DONE") parts.push("DONE");
+            else if (tool && obj.params) {
+              var path = obj.params.path;
+              parts.push(path ? tool + " " + path : tool);
+            }
+          } catch (_) {}
+          i = j + 1;
+          break;
+        }
+        j++;
+      }
+      if (j >= buf.length) break;
+    }
+    return parts.length ? parts.join(" \u00b7 ") : null;
+  }
+
   function flushPlanningBuffer() {
     planningFlushTimer = null;
-    if (!planningStream || !planningBuffer) return;
-    planningStream.append(document.createTextNode(planningBuffer));
-    planningBuffer = "";
+    if (!planningStream) return;
+    var summary = planningBufferToSummary(planningBuffer);
+    var toShow = summary !== null ? summary : (planningBuffer ? "\u2026" : "");
+    planningStream.textContent = toShow;
     if (stepsLive) stepsLive.scrollTop = stepsLive.scrollHeight;
   }
 
@@ -334,6 +380,7 @@
   function hidePlanningStream() {
     if (planningLive) planningLive.hidden = true;
     if (planningStream) planningStream.textContent = "";
+    planningBuffer = "";
   }
 
   async function runTaskStream() {
@@ -363,6 +410,7 @@
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
+    planningBuffer = "";
     let buffer = "";
     while (true) {
       const { done, value } = await reader.read();
