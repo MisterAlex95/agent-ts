@@ -654,6 +654,29 @@ kbd {
   gap: 0.4rem;
 }
 
+.feed-step-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: rgba(15, 23, 42, 0.6);
+  padding: 0.5rem 0.75rem;
+}
+
+.feed-step-block .feed-block {
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0 0;
+  margin: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+
+.feed-step-block .feed-block:first-child {
+  padding-top: 0;
+}
+
 .feed-block {
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
@@ -694,6 +717,10 @@ kbd {
   margin-bottom: 0.35rem;
 }
 
+.feed-block-file-header-diff {
+  gap: 0.75rem;
+}
+
 .feed-block-file-path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.8rem;
@@ -703,6 +730,20 @@ kbd {
 .feed-block-file-diff {
   font-size: 0.75rem;
   color: var(--text-soft);
+}
+
+.feed-block-file-diff-stats {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.feed-block-diff-added {
+  color: #4ade80;
+}
+
+.feed-block-diff-removed {
+  color: #f87171;
 }
 
 .feed-block-code {

@@ -157,9 +157,12 @@ export const RunsPage: React.FC<RunsPageProps> = ({
                 ) : (
                   <>
                     {stepEvents.map((step, idx) => (
-                      <div key={idx} className="feed-step-group">
+                      <div key={idx} className="feed-step-group feed-step-block">
                         {stepThoughts[idx] && (
-                          <ThinkingBlock text={stepThoughts[idx] ?? ""} />
+                          <ThinkingBlock
+                            text={stepThoughts[idx] ?? ""}
+                            verbose={activeRun?.verbose ?? false}
+                          />
                         )}
                         {getStepBlockType(step.tool) === "exploration" && (
                           <ExplorationBlock
@@ -193,7 +196,12 @@ export const RunsPage: React.FC<RunsPageProps> = ({
                       </div>
                     ))}
                     {hasStreamingThought && (
-                      <ThinkingBlock text={activeRun.plannerStream ?? ""} />
+                      <div className="feed-step-group feed-step-block">
+                        <ThinkingBlock
+                          text={activeRun.plannerStream ?? ""}
+                          verbose={activeRun?.verbose ?? false}
+                        />
+                      </div>
                     )}
                   </>
                 )}

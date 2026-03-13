@@ -102,10 +102,7 @@ export const FileChangeBlock: React.FC<FileChangeBlockProps> = ({
   const added = summary.added;
   const removed = summary.removed;
   const snippet = summary.snippet;
-  const diffLabel =
-    added > 0 || removed > 0
-      ? `+${added}${removed > 0 ? ` -${removed}` : ""}`
-      : "";
+  const hasDiff = added > 0 || removed > 0;
 
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const runRef = useRef(0);
@@ -132,9 +129,15 @@ export const FileChangeBlock: React.FC<FileChangeBlockProps> = ({
 
   return (
     <div className="feed-block feed-block-file-change" aria-label="File change">
-      <div className="feed-block-file-header">
+      <div className="feed-block-file-header feed-block-file-header-diff">
         <span className="feed-block-file-path">{path}</span>
-        {diffLabel && <span className="feed-block-file-diff">{diffLabel}</span>}
+        {hasDiff && (
+          <span className="feed-block-file-diff-stats">
+            {added > 0 && <span className="feed-block-diff-added">+{added}</span>}
+            {added > 0 && removed > 0 && " "}
+            {removed > 0 && <span className="feed-block-diff-removed">-{removed}</span>}
+          </span>
+        )}
       </div>
       {snippet &&
         (highlightedHtml ? (
