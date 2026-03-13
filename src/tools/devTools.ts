@@ -45,22 +45,28 @@ export async function gitCommitTool(message: string): Promise<GitCommitResult> {
 }
 
 export async function runTestsTool(
-  options?: { timeoutMs?: number },
+  options?: { timeoutMs?: number; cwd?: string },
 ): Promise<RunTestsResult> {
-  // --run makes Vitest (and similar runners) exit after one run instead of watch mode
   return runWorkspaceCommand("npm test -- --run", {
     timeoutMs: options?.timeoutMs ?? TESTS_TIMEOUT_MS,
+    cwd: options?.cwd,
   });
 }
 
-export async function runLintTool(): Promise<RunLintResult> {
+export async function runLintTool(
+  options?: { cwd?: string },
+): Promise<RunLintResult> {
   return runWorkspaceCommand("npm run lint", {
     timeoutMs: DEFAULT_TIMEOUT_MS,
+    cwd: options?.cwd,
   });
 }
 
-export async function runBuildTool(): Promise<RunBuildResult> {
+export async function runBuildTool(
+  options?: { cwd?: string },
+): Promise<RunBuildResult> {
   return runWorkspaceCommand("npm run build", {
     timeoutMs: DEFAULT_TIMEOUT_MS * 2,
+    cwd: options?.cwd,
   });
 }

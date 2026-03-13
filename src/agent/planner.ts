@@ -1,4 +1,4 @@
-import { ollamaChat } from "../llm/ollamaClient.js";
+import { ollamaChatStream } from "../llm/ollamaClient.js";
 import type { ToolName } from "./memory.js";
 import type { RunMode } from "../api/schema.js";
 import {
@@ -22,6 +22,14 @@ export interface PlanningContext {
   goalType: "generic" | "runTestsAndFix" | "addEndpoint" | "improveTypes";
   mode?: RunMode;
   conversationHistory?: string;
+  /** Paths already read in this run (do not call readFile again for these) */
+  alreadyReadPaths?: string;
+  /** Paths already listed (do not call listFiles again for these) */
+  alreadyListedPaths?: string;
+  stepsRemaining?: number;
+  maxSteps?: number;
+  /** Called with each planner LLM stream delta for live UI updates */
+  onPlannerChunk?: (delta: string) => void;
 }
 
 export const READ_ONLY_TOOLS: ToolName[] = [
@@ -45,7 +53,9 @@ const TOOLS: Record<string, { params: string }> = {
   listFiles: { params: "path: string (e.g. \".\" or \"src\")" },
   readFile: { params: "path: string (relative path)" },
   writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
-  editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; content must be indented, multiple lines)" },
+  editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; use when you have line numbers from search)" },
+  searchReplace: { params: "path: string, oldText: string, newText: string (exact snippet to find and replace; first occurrence only)" },
+  appendFile: { params: "path: string, content: string (append content at end of file; no line numbers)" },
   deleteFile: { params: "path: string (single file only; for directories use deleteFolder)" },
   deleteFiles: { params: "paths: string[] (file paths only; for directories use deleteFolder)" },
   deleteFolder: { params: "path: string (directory path; deletes it and contents recursively)" },
@@ -62,9 +72,9 @@ const TOOLS: Record<string, { params: string }> = {
   gitDiff: { params: "path?: string, staged?: boolean" },
   gitLog: { params: "maxCount?: number, path?: string" },
   gitCommit: { params: "message: string" },
-  runTests: { params: "none" },
-  runLint: { params: "none" },
-  runBuild: { params: "none" },
+  runTests: { params: "cwd?: string (optional subdir, e.g. \"react-ts\")" },
+  runLint: { params: "cwd?: string (optional subdir)" },
+  runBuild: { params: "cwd?: string (optional subdir, e.g. \"react-ts\")" },
   DONE: { params: "none" },
 };
 
@@ -137,6 +147,8 @@ function parsePlannedAction(
       "readFile",
       "writeFile",
       "editLines",
+      "searchReplace",
+      "appendFile",
       "deleteFile",
       "deleteFiles",
       "deleteFolder",
@@ -200,6 +212,20 @@ function parsePlannedAction(
         normalized.edits = [];
       }
       break;
+    case "searchReplace":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      normalized.oldText =
+        typeof paramsObj.oldText === "string" ? paramsObj.oldText : "";
+      normalized.newText =
+        typeof paramsObj.newText === "string" ? paramsObj.newText : "";
+      break;
+    case "appendFile":
+      normalized.path =
+        typeof paramsObj.path === "string" ? paramsObj.path : "";
+      normalized.content =
+        typeof paramsObj.content === "string" ? paramsObj.content : "";
+      break;
     case "deleteFile":
       normalized.path =
         typeof paramsObj.path === "string" ? paramsObj.path : "";
@@ -251,6 +277,7 @@ function parsePlannedAction(
     case "runTests":
     case "runLint":
     case "runBuild":
+      if (typeof paramsObj.cwd === "string") normalized.cwd = paramsObj.cwd;
       break;
     case "gitDiff":
       if (typeof paramsObj.path === "string") normalized.path = paramsObj.path;
@@ -289,6 +316,8 @@ export async function planNextAction(
         "readFile",
         "writeFile",
         "editLines",
+        "searchReplace",
+        "appendFile",
         "deleteFile",
         "deleteFiles",
         "deleteFolder",
@@ -327,7 +356,10 @@ export async function planNextAction(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const { content } = await ollamaChat(messages, { temperature: 0.1 });
+      const { content } = await ollamaChatStream(messages, {
+        temperature: 0.1,
+        onChunk: ctx.onPlannerChunk,
+      });
       const data = extractJson(content);
       const parsed = parsePlannedAction(data, allowedTools);
       if (parsed) return parsed;

@@ -34,6 +34,7 @@ export function registerRoutes(app: Express): void {
         timeoutMs,
         history: Array.isArray(history) ? history : undefined,
         onStep: (ev) => writeSSE(res, { type: "step", ...ev }),
+        onPlannerChunk: (delta) => writeSSE(res, { type: "planner_delta", delta }),
       });
       writeSSE(res, { type: "done", ...result });
     } catch (err) {

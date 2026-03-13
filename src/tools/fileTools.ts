@@ -211,6 +211,46 @@ export async function patchFileTool(
   };
 }
 
+export interface SearchReplaceResult {
+  path: string;
+  replaced: boolean;
+  message: string;
+}
+
+/**
+ * Replace the first occurrence of oldText with newText in the file (OpenDevin-style).
+ * No line numbers needed—the model provides the exact snippet to find. Safer than editLines when the exact text is known.
+ */
+export async function searchReplaceTool(
+  pathRelative: string,
+  oldText: string,
+  newText: string,
+): Promise<SearchReplaceResult> {
+  if (isProtectedPath(pathRelative)) {
+    throw new Error(`searchReplaceTool: access to protected path '${pathRelative}'`);
+  }
+  if (typeof oldText !== "string" || oldText.length === 0) {
+    throw new Error("searchReplaceTool: oldText must be a non-empty string (required to avoid ambiguous replace)");
+  }
+  const original = await readWorkspaceFile(pathRelative);
+  const idx = original.indexOf(oldText);
+  if (idx === -1) {
+    return {
+      path: pathRelative.replace(/\\/g, "/"),
+      replaced: false,
+      message: "oldText not found in file (check whitespace and exact string)",
+    };
+  }
+  const updated = original.slice(0, idx) + newText + original.slice(idx + oldText.length);
+  await backupFileIfExists(pathRelative);
+  await writeWorkspaceFile(pathRelative, updated);
+  return {
+    path: pathRelative.replace(/\\/g, "/"),
+    replaced: true,
+    message: "Replaced first occurrence",
+  };
+}
+
 /**
  * Edit file by line number (1-based). Faster than writeFile when only a few lines change:
  * agent sends path + list of { line, content, mode } instead of full file.

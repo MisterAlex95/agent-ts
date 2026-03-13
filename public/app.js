@@ -19,6 +19,9 @@
   const historyHint = document.getElementById("historyHint");
   const stepsLive = document.getElementById("stepsLive");
   const stepsList = document.getElementById("stepsList");
+  const planningLive = document.getElementById("planningLive");
+  const planningStream = document.getElementById("planningStream");
+  const planningCursor = document.getElementById("planningCursor");
   const indexBtn = document.getElementById("indexBtn");
   const indexStatus = document.getElementById("indexStatus");
   const statusPill = document.getElementById("statusPill");
@@ -283,13 +286,54 @@
   });
   taskInput.addEventListener("blur", saveTask);
 
+  var planningBuffer = "";
+  var planningFlushTimer = null;
+  var PLANNING_FLUSH_MS = 60;
+  function flushPlanningBuffer() {
+    planningFlushTimer = null;
+    if (!planningStream || !planningBuffer) return;
+    planningStream.append(document.createTextNode(planningBuffer));
+    planningBuffer = "";
+    if (stepsLive) stepsLive.scrollTop = stepsLive.scrollHeight;
+  }
+
   function addStepItem(step, tool, params, error) {
+    if (planningFlushTimer) {
+      clearTimeout(planningFlushTimer);
+      planningFlushTimer = null;
+    }
+    planningBuffer += "";
+    flushPlanningBuffer();
+    if (planningLive) {
+      planningLive.hidden = true;
+      if (planningStream) planningStream.textContent = "";
+    }
+    planningBuffer = "";
     const div = document.createElement("div");
     div.className = "step-item" + (error ? " error" : "");
     const paramsStr = params && typeof params === "object" ? JSON.stringify(params).slice(0, 60) : "";
     div.innerHTML = "<span class=\"step-num\">" + step + "</span><span class=\"step-tool\">" + (tool || "?") + "</span><span class=\"step-params\">" + (error || paramsStr) + "</span>";
-    stepsList.appendChild(div);
-    stepsLive.scrollTop = stepsLive.scrollHeight;
+    stepsList.insertBefore(div, stepsList.firstChild);
+    stepsLive.scrollTop = 0;
+  }
+
+  function showPlanningStreamAndAppend(delta) {
+    if (typeof delta !== "string") return;
+    if (planningLive && planningLive.hidden) {
+      planningLive.hidden = false;
+      if (planningStream) planningStream.textContent = "";
+    }
+    planningBuffer += delta;
+    if (!planningFlushTimer) {
+      planningFlushTimer = setTimeout(function () {
+        flushPlanningBuffer();
+      }, PLANNING_FLUSH_MS);
+    }
+  }
+
+  function hidePlanningStream() {
+    if (planningLive) planningLive.hidden = true;
+    if (planningStream) planningStream.textContent = "";
   }
 
   async function runTaskStream() {
@@ -331,9 +375,12 @@
         if (!line) continue;
         try {
           const data = JSON.parse(line.slice(6));
-          if (data.type === "step") {
+          if (data.type === "planner_delta") {
+            showPlanningStreamAndAppend(data.delta || "");
+          } else if (data.type === "step") {
             addStepItem(data.step, data.tool, data.params, data.error);
           } else if (data.type === "done") {
+            hidePlanningStream();
             const answerRaw = data.answer ?? "(no answer)";
             answerEl.innerHTML = renderAnswer(answerRaw);
             answerEl.className = "answer-block";
@@ -361,6 +408,7 @@
               memoryDetails.hidden = true;
             }
           } else if (data.type === "error") {
+            hidePlanningStream();
             showError(data.error || "Unknown error");
           }
         } catch (_) {}
@@ -393,6 +441,7 @@
     if (useStream) {
       stepsLive.hidden = false;
       stepsList.innerHTML = "";
+      hidePlanningStream();
     } else {
       stepsLive.hidden = true;
     }

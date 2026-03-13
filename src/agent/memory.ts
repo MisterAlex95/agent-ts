@@ -4,6 +4,8 @@ export type ToolName =
   | "readFile"
   | "writeFile"
   | "editLines"
+  | "searchReplace"
+  | "appendFile"
   | "deleteFile"
   | "deleteFiles"
   | "deleteFolder"

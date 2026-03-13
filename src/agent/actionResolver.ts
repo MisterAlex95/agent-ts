@@ -4,6 +4,8 @@ import {
   writeFileTool,
   listFilesTool,
   editLinesTool,
+  searchReplaceTool,
+  appendFileTool,
   deleteFileTool,
   deleteFilesTool,
   deleteFolderTool,
@@ -40,6 +42,8 @@ export interface ExecuteToolOptions {
 const DRY_RUN_TOOLS: ToolName[] = [
   "writeFile",
   "editLines",
+  "searchReplace",
+  "appendFile",
   "deleteFile",
   "deleteFiles",
   "deleteFolder",
@@ -98,6 +102,14 @@ export async function executeTool(
           }))
         : [];
       return editLinesTool(path, normalized);
+    }
+    case "searchReplace": {
+      const { path, oldText, newText } = params as { path: string; oldText: string; newText: string };
+      return searchReplaceTool(path ?? "", oldText ?? "", newText ?? "");
+    }
+    case "appendFile": {
+      const { path, content } = params as { path: string; content: string };
+      return appendFileTool(path ?? "", content ?? "");
     }
     case "deleteFile": {
       const { path } = params as { path: string };
@@ -173,12 +185,18 @@ export async function executeTool(
       const { message } = params as { message: string };
       return gitCommitTool(message);
     }
-    case "runTests":
-      return runTestsTool();
-    case "runLint":
-      return runLintTool();
-    case "runBuild":
-      return runBuildTool();
+    case "runTests": {
+      const { cwd } = params as { cwd?: string };
+      return runTestsTool(cwd ? { cwd } : undefined);
+    }
+    case "runLint": {
+      const { cwd } = params as { cwd?: string };
+      return runLintTool(cwd ? { cwd } : undefined);
+    }
+    case "runBuild": {
+      const { cwd } = params as { cwd?: string };
+      return runBuildTool(cwd ? { cwd } : undefined);
+    }
     default: {
       const neverTool: never = tool;
       throw new Error(`Unsupported tool: ${String(neverTool)}`);

@@ -1,0 +1,27 @@
+{% if conversationHistory %}Conversation so far:
+{{ conversationHistory }}
+
+Current task: {{ task }}{% else %}Task: {{ task }}{% endif %}
+Goal type: {{ goalType }}
+
+Relevant code context (from semantic search):
+{{ relevantContext | default("(none yet)") }}
+
+Previous tool results (most recent first):
+{{ recentObservations | default("(none yet)") }}
+{% if alreadyReadPaths %}
+
+Paths already read in this run (do NOT call readFile again for these): {{ alreadyReadPaths }}
+{% endif %}
+{% if alreadyListedPaths %}Paths already listed (do NOT call listFiles again for these): {{ alreadyListedPaths }}
+{% endif %}
+{% if stepsRemaining is defined and maxSteps is defined %}Steps remaining: {{ stepsRemaining }} of {{ maxSteps }}. Prefer making progress (writeFile, searchReplace, appendFile, runCommand) over more exploration.
+{% endif %}
+
+When deciding DONE: for runTestsAndFix, stop when tests pass or you cannot fix further; for addEndpoint, stop when the endpoint and wiring are in place; for improveTypes, stop when types are improved; for generic, stop when the main ask is done or no useful action remains.
+
+Do NOT reply DONE if: the user asked to create or modify a file and you have not called writeFile yet; the user asked to run tests and you have not called runTests yet; the user asked for a specific change and you have not attempted it yet. Do NOT keep listing or reading files when the task is to build something—use writeFile or runCommand.
+
+If the last tool already failed (error in output), do NOT repeat the same tool with the same intent; choose a different tool or DONE.
+
+What is the next tool to run? Reply with a single JSON object: {"tool":"...","params":{...}} or {"tool":"DONE","params":{}}.

@@ -388,6 +388,19 @@
     .step-tool { color: var(--text); font-weight: 500; }
     .step-params { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .step-item.error .step-tool { color: var(--danger); }
+    .planning-live {
+      padding: 0.5rem 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-height: 1.5em;
+    }
+    .planning-label { margin-right: 0.35rem; }
+    .planning-stream { color: var(--accent); word-break: break-all; }
+    .planning-cursor { color: var(--accent); animation: blink 0.8s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
     .toast-container {
       position: fixed;
       bottom: 1.5rem;
@@ -577,6 +590,11 @@
 
     <div class="card result-card" id="resultCard" hidden aria-live="polite">
       <div class="steps-live" id="stepsLive" hidden>
+        <div class="planning-live" id="planningLive" hidden aria-live="polite">
+          <span class="planning-label">Planning…</span>
+          <span class="planning-stream" id="planningStream"></span>
+          <span class="planning-cursor" id="planningCursor" aria-hidden="true">▌</span>
+        </div>
         <div class="steps-live-title">Steps</div>
         <div id="stepsList"></div>
       </div>
