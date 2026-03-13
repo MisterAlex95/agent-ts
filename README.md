@@ -45,7 +45,7 @@ npm test
    ollama pull nomic-embed-text
    ```
 
-2. **`.env`** with `QDRANT_URL` (and optionally `OLLAMA_BASE_URL` if not local).
+2. **`.env`** with `QDRANT_URL` (and optionally `AGENT_BASE_URL` if not local).
 
 3. **Put some code in `workspace/`** so the index has something to search:
    ```bash

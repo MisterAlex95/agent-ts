@@ -1,4 +1,4 @@
-import { AgentMemory } from "../src/agent/memory.js";
+import { AgentMemory } from "../src/agent/memory/index.js";
 
 describe("AgentMemory", () => {
   it("records observations and snapshots state", () => {

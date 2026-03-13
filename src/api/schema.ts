@@ -1,4 +1,4 @@
-import type { AgentRunResult } from "../agent/agentLoop.js";
+import type { AgentRunResult } from "../agent/index.js";
 
 export type GoalType =
   | "generic"

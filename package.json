@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "bin": {
-    "agent": "./dist/cli.js"
+    "agent": "./dist/cli/index.js"
   },
   "scripts": {
     "dev": "tsx watch src/api/server.ts",
     "build": "tsc -p tsconfig.json && node scripts/copy-templates.mjs",
     "start": "node dist/api/server.js",
-    "agent": "tsx src/cli.ts",
+    "agent": "tsx src/cli/index.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "test": "vitest"
   },

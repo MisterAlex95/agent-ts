@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
-import { runAgentLoop } from "../agent/agentLoop.js";
+import { runAgentLoop } from "../agent/index.js";
 import { indexWorkspaceRepository, indexWorkspaceIncremental } from "../rag/indexer.js";
 import { registerTask, abortTask, unregisterTask } from "./taskStore.js";
 import { recordRun, getMetrics } from "./metrics.js";

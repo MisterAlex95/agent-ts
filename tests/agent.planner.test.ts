@@ -4,7 +4,7 @@ vi.mock("../src/llm/ollamaClient.js", () => ({
   ollamaChat: vi.fn(),
 }));
 
-import { planNextAction } from "../src/agent/planner.js";
+import { planNextAction } from "../src/agent/planning/planner.js";
 import { ollamaChat } from "../src/llm/ollamaClient.js";
 
 describe("planner", () => {

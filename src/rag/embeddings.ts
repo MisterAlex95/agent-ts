@@ -1,7 +1,7 @@
-import { ollamaEmbed } from "../llm/ollamaClient.js";
+import { getEmbeddingProvider } from "./embeddingProvider.js";
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  return ollamaEmbed(texts);
+  return getEmbeddingProvider().embed(texts);
 }
 

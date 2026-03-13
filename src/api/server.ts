@@ -12,11 +12,11 @@ const PUBLIC_DIR = path.resolve(__dirname, "../../public");
 function validateConfig(): void {
   const missing: string[] = [];
   if (!process.env.QDRANT_URL) missing.push("QDRANT_URL");
-  if (!process.env.OLLAMA_BASE_URL)
-    missing.push("OLLAMA_BASE_URL (default http://localhost:11434 will be used)");
-  if (!process.env.OLLAMA_MODEL) missing.push("OLLAMA_MODEL");
-  if (!process.env.OLLAMA_EMBEDDING_MODEL)
-    missing.push("OLLAMA_EMBEDDING_MODEL");
+  if (!process.env.AGENT_BASE_URL)
+    missing.push("AGENT_BASE_URL (default http://localhost:11434 will be used)");
+  if (!process.env.AGENT_MODEL) missing.push("AGENT_MODEL");
+  if (!process.env.EMBEDDING_MODEL)
+    missing.push("EMBEDDING_MODEL");
 
   if (missing.length > 0) {
     // eslint-disable-next-line no-console

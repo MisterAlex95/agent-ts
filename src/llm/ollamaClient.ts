@@ -24,13 +24,13 @@ export interface OllamaEmbeddingResponse {
   data?: Array<{ embedding: number[] }>;
 }
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const DEFAULT_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5-coder";
+const AGENT_BASE_URL = process.env.AGENT_BASE_URL ?? "http://localhost:11434";
+const DEFAULT_MODEL = process.env.AGENT_MODEL ?? "qwen2.5-coder";
 const DEFAULT_EMBEDDING_MODEL =
-  process.env.OLLAMA_EMBEDDING_MODEL ?? "nomic-embed-text";
+  process.env.EMBEDDING_MODEL ?? "nomic-embed-text";
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${OLLAMA_BASE_URL}${path}`, {
+  const res = await fetch(`${AGENT_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -80,7 +80,7 @@ export async function ollamaChatStream(
     stream: true,
   };
 
-  const res = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+  const res = await fetch(`${AGENT_BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -139,7 +139,7 @@ export async function ollamaChatStream(
   return { content: fullContent };
 }
 
-export async function ollamaEmbed(
+async function ollamaEmbed(
   inputs: string[],
   options?: { model?: string },
 ): Promise<number[][]> {
@@ -156,5 +156,13 @@ export async function ollamaEmbed(
   if (Array.isArray(res.data)) return res.data.map((d) => d.embedding);
   if (Array.isArray(res.embedding)) return [res.embedding];
   throw new Error("Ollama embed response: missing embeddings array");
+}
+
+import type { EmbeddingProvider } from "./embeddingProvider.js";
+
+export function createOllamaEmbeddingProvider(): EmbeddingProvider {
+  return {
+    embed: (texts: string[], options?: { model?: string }) => ollamaEmbed(texts, options),
+  };
 }
 
