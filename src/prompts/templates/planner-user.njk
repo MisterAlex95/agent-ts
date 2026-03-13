@@ -3,6 +3,9 @@
 
 Current task: {{ task }}{% else %}Task: {{ task }}{% endif %}
 Goal type: {{ goalType }}
+{% if goalType == "runTestsAndFix" %}Hint: run runTests early; if they fail, use readFile on the failing file and editLines/searchReplace to fix, then runTests again.{% endif %}
+{% if goalType == "addEndpoint" %}Hint: find routes/handlers (searchSymbols or grep), then add or change the endpoint and any minimal test/wiring.{% endif %}
+{% if goalType == "improveTypes" %}Hint: locate the target file (searchCode/readFile), then use searchReplace or editLines to tighten types and fix errors.{% endif %}
 
 Relevant code context (from semantic search):
 {{ relevantContext | default("(none yet)") }}

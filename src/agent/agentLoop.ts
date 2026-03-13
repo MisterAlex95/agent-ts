@@ -51,6 +51,8 @@ export interface AgentRunOptions {
   /** Called with each planner LLM stream delta when using streaming (e.g. for /tasks/stream) */
   onPlannerChunk?: (delta: string) => void;
   history?: ConversationMessage[];
+  /** When aborted, the loop returns early with cancelled: true */
+  signal?: AbortSignal;
 }
 
 export interface TraceEntry {
@@ -68,6 +70,8 @@ export interface AgentRunResult {
   answer: string | null;
   trace?: TraceEntry[];
   dryRunPlannedChanges?: Array<{ tool: string; params: unknown }>;
+  /** True when the run was aborted via signal */
+  cancelled?: boolean;
 }
 
 export async function runAgentLoop(
@@ -80,6 +84,7 @@ export async function runAgentLoop(
   const dryRun = options?.dryRun ?? false;
   const timeoutMs = options?.timeoutMs ?? 5 * 60 * 1000;
   const onStep = options?.onStep;
+  const signal = options?.signal;
   const memory = new AgentMemory(task);
   const trace: TraceEntry[] = [];
   const dryRunPlannedChanges: Array<{ tool: string; params: unknown }> = [];
@@ -121,6 +126,15 @@ export async function runAgentLoop(
 
   async function runLoop(): Promise<AgentRunResult> {
     while (steps < maxSteps) {
+      if (signal?.aborted) {
+        return {
+          finished: false,
+          steps,
+          memory: memory.snapshot(),
+          answer: null,
+          cancelled: true,
+        };
+      }
       const recentObservations = formatRecentObservations(observationSummaries);
       const alreadyReadPaths = getAlreadyReadPaths(observationSummaries);
       const alreadyListedPaths = getAlreadyListedPaths(observationSummaries);
@@ -157,6 +171,15 @@ export async function runAgentLoop(
         onPlannerChunk: options?.onPlannerChunk,
       });
 
+      if (signal?.aborted) {
+        return {
+          finished: false,
+          steps,
+          memory: memory.snapshot(),
+          answer: null,
+          cancelled: true,
+        };
+      }
       if (!planned) {
         break;
       }

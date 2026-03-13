@@ -1,6 +1,9 @@
+import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { runAgentLoop } from "../agent/agentLoop.js";
 import { indexWorkspaceRepository, indexWorkspaceIncremental } from "../rag/indexer.js";
+import { registerTask, abortTask, unregisterTask } from "./taskStore.js";
+import { recordRun, getMetrics } from "./metrics.js";
 import type { TaskRequestBody, TaskResponseBody } from "./schema.js";
 
 function writeSSE(res: Response, data: unknown): void {
@@ -10,6 +13,10 @@ function writeSSE(res: Response, data: unknown): void {
 export function registerRoutes(app: Express): void {
   app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
+  });
+
+  app.get("/metrics", (_req: Request, res: Response) => {
+    res.json(getMetrics());
   });
 
   app.post("/tasks/stream", async (req: Request, res: Response) => {
@@ -24,6 +31,12 @@ export function registerRoutes(app: Express): void {
     res.setHeader("X-Accel-Buffering", "no");
     res.flushHeaders?.();
 
+    const taskId = crypto.randomUUID();
+    const controller = new AbortController();
+    registerTask(taskId, controller);
+    writeSSE(res, { type: "started", taskId });
+
+    const streamStart = Date.now();
     try {
       const result = await runAgentLoop(task, {
         maxSteps,
@@ -33,19 +46,54 @@ export function registerRoutes(app: Express): void {
         dryRun,
         timeoutMs,
         history: Array.isArray(history) ? history : undefined,
+        signal: controller.signal,
         onStep: (ev) => writeSSE(res, { type: "step", ...ev }),
         onPlannerChunk: (delta) => writeSSE(res, { type: "planner_delta", delta }),
       });
-      writeSSE(res, { type: "done", ...result });
+      if (result.cancelled) {
+        writeSSE(res, { type: "cancelled", ...result });
+      } else {
+        writeSSE(res, { type: "done", ...result });
+      }
+      recordRun({
+        steps: result.steps,
+        durationMs: Date.now() - streamStart,
+        finished: result.finished,
+        cancelled: result.cancelled,
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      writeSSE(res, { type: "error", error: message });
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      const isTimeout = typeof message === "string" && message.includes("timeout");
+      if (isAbort) {
+        writeSSE(res, { type: "cancelled", message: "Task cancelled" });
+      } else if (isTimeout) {
+        writeSSE(res, { type: "timeout", error: message });
+      } else {
+        writeSSE(res, { type: "error", error: message });
+      }
     } finally {
+      unregisterTask(taskId);
       res.end();
     }
   });
 
+  app.delete("/tasks/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: "Missing task id" });
+      return;
+    }
+    const cancelled = abortTask(id);
+    if (cancelled) {
+      res.status(202).json({ cancelled: true, taskId: id });
+    } else {
+      res.status(404).json({ error: "Task not found or already finished", taskId: id });
+    }
+  });
+
   app.post("/tasks", async (req: Request, res: Response) => {
+    const start = Date.now();
     try {
       const { task, maxSteps, goalType, mode, verbose, dryRun, timeoutMs, history } = req.body as Partial<TaskRequestBody>;
       if (!task || typeof task !== "string") {
@@ -60,6 +108,12 @@ export function registerRoutes(app: Express): void {
         dryRun,
         timeoutMs,
         history: Array.isArray(history) ? history : undefined,
+      });
+      recordRun({
+        steps: result.steps,
+        durationMs: Date.now() - start,
+        finished: result.finished,
+        cancelled: result.cancelled,
       });
       res.json(result);
     } catch (err) {

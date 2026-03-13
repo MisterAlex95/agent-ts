@@ -8,6 +8,7 @@ import {
   PLANNER_RETRY_PROMPT,
   PLANNER_FALLBACK_PROMPT,
 } from "../prompts/planner.js";
+import { getToolsForPlanner, READ_ONLY_TOOLS, EXECUTABLE_TOOL_NAMES } from "../tools/registry.js";
 
 export interface PlannedAction {
   tool: ToolName;
@@ -32,51 +33,9 @@ export interface PlanningContext {
   onPlannerChunk?: (delta: string) => void;
 }
 
-export const READ_ONLY_TOOLS: ToolName[] = [
-  "searchCode",
-  "searchSymbols",
-  "listFiles",
-  "readFile",
-  "grep",
-  "findFiles",
-  "fileExists",
-  "wc",
-  "referencedBy",
-  "gitStatus",
-  "gitDiff",
-  "gitLog",
-];
+export { READ_ONLY_TOOLS };
 
-const TOOLS: Record<string, { params: string }> = {
-  searchCode: { params: "query: string (general code context)" },
-  searchSymbols: { params: "query: string (function/class/endpoint name or purpose)" },
-  listFiles: { params: "path: string (e.g. \".\" or \"src\")" },
-  readFile: { params: "path: string (relative path)" },
-  writeFile: { params: "path: string, content: string (code must be indented, multiple lines)" },
-  editLines: { params: "path: string, edits: [{ line: number, content: string, mode?: \"replace\"|\"insert\" }] (1-based; use when you have line numbers from search)" },
-  searchReplace: { params: "path: string, oldText: string, newText: string (exact snippet to find and replace; first occurrence only)" },
-  appendFile: { params: "path: string, content: string (append content at end of file; no line numbers)" },
-  deleteFile: { params: "path: string (single file only; for directories use deleteFolder)" },
-  deleteFiles: { params: "paths: string[] (file paths only; for directories use deleteFolder)" },
-  deleteFolder: { params: "path: string (directory path; deletes it and contents recursively)" },
-  deletePath: { params: "path: string (file or directory; deletes recursively if directory)" },
-  moveFile: { params: "from: string, to: string (relative paths)" },
-  copyFile: { params: "from: string, to: string (relative paths)" },
-  grep: { params: "path?: string (dir or file), pattern: string (regex), caseInsensitive?: boolean, maxMatches?: number" },
-  findFiles: { params: "path?: string (dir), namePattern: string (e.g. \"*.ts\", \"*.test.ts\")" },
-  fileExists: { params: "path: string (relative path)" },
-  wc: { params: "path: string (file path; returns lines, words, bytes)" },
-  referencedBy: { params: "path: string (file path; returns which files reference it, e.g. imports)" },
-  runCommand: { params: "command: string, cwd?: string (optional subdir to run in, e.g. \"react-ts\")" },
-  gitStatus: { params: "none" },
-  gitDiff: { params: "path?: string, staged?: boolean" },
-  gitLog: { params: "maxCount?: number, path?: string" },
-  gitCommit: { params: "message: string" },
-  runTests: { params: "cwd?: string (optional subdir, e.g. \"react-ts\")" },
-  runLint: { params: "cwd?: string (optional subdir)" },
-  runBuild: { params: "cwd?: string (optional subdir, e.g. \"react-ts\")" },
-  DONE: { params: "none" },
-};
+const TOOLS = getToolsForPlanner();
 
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
@@ -138,37 +97,7 @@ function parsePlannedAction(
 
   if (tool === "DONE") return null;
 
-  const validTools: ToolName[] =
-    allowedTools ??
-    ([
-      "searchCode",
-      "searchSymbols",
-      "listFiles",
-      "readFile",
-      "writeFile",
-      "editLines",
-      "searchReplace",
-      "appendFile",
-      "deleteFile",
-      "deleteFiles",
-      "deleteFolder",
-      "deletePath",
-      "moveFile",
-      "copyFile",
-      "grep",
-      "findFiles",
-      "fileExists",
-      "wc",
-      "referencedBy",
-      "runCommand",
-      "gitStatus",
-      "gitDiff",
-      "gitLog",
-      "gitCommit",
-      "runTests",
-      "runLint",
-      "runBuild",
-    ] as ToolName[]);
+  const validTools: ToolName[] = allowedTools ?? EXECUTABLE_TOOL_NAMES;
   if (!validTools.includes(tool as ToolName)) return null;
 
   const params = obj.params;
@@ -307,37 +236,7 @@ export async function planNextAction(
   ctx: PlanningContext,
 ): Promise<PlannedAction | null> {
   const isAsk = ctx.mode === "Ask";
-  const allowedTools: ToolName[] = isAsk
-    ? READ_ONLY_TOOLS
-    : ([
-        "searchCode",
-        "searchSymbols",
-        "listFiles",
-        "readFile",
-        "writeFile",
-        "editLines",
-        "searchReplace",
-        "appendFile",
-        "deleteFile",
-        "deleteFiles",
-        "deleteFolder",
-        "deletePath",
-        "moveFile",
-        "copyFile",
-        "grep",
-        "findFiles",
-        "fileExists",
-        "wc",
-        "referencedBy",
-        "runCommand",
-        "gitStatus",
-        "gitDiff",
-        "gitLog",
-        "gitCommit",
-        "runTests",
-        "runLint",
-        "runBuild",
-      ] as ToolName[]);
+  const allowedTools: ToolName[] = isAsk ? READ_ONLY_TOOLS : EXECUTABLE_TOOL_NAMES;
 
   const toolsList = Object.entries(TOOLS)
     .filter(([name]) => name === "DONE" || allowedTools.includes(name as ToolName))

@@ -364,10 +364,20 @@ export async function indexWorkspaceIncremental(): Promise<{
   removed: number;
   unchanged: number;
 }> {
+  const state = await readIndexState();
+  if (!state?.files || Object.keys(state.files).length === 0) {
+    const full = await indexWorkspaceRepository();
+    return {
+      indexedFiles: full.indexedFiles,
+      indexedChunks: full.indexedChunks,
+      removed: 0,
+      unchanged: 0,
+    };
+  }
+
   const files = await listWorkspaceFiles(".");
   const codePaths = getCodeFilePaths(files);
   const mtimes = await getFileMtimes(codePaths);
-  const state = await readIndexState();
 
   const currentByPath = new Map(mtimes.entries());
   const prev = state?.files ?? {};

@@ -31,6 +31,7 @@ import {
 import type { ToolName } from "./memory.js";
 import type { RunMode } from "../api/schema.js";
 import { READ_ONLY_TOOLS } from "./planner.js";
+import { DRY_RUN_TOOLS } from "../tools/registry.js";
 
 export type ToolExecutionResult = unknown;
 
@@ -38,21 +39,6 @@ export interface ExecuteToolOptions {
   dryRun?: boolean;
   mode?: RunMode;
 }
-
-const DRY_RUN_TOOLS: ToolName[] = [
-  "writeFile",
-  "editLines",
-  "searchReplace",
-  "appendFile",
-  "deleteFile",
-  "deleteFiles",
-  "deleteFolder",
-  "deletePath",
-  "moveFile",
-  "copyFile",
-  "runCommand",
-  "gitCommit",
-];
 
 function isDryRunOnly(tool: ToolName): boolean {
   return DRY_RUN_TOOLS.includes(tool);

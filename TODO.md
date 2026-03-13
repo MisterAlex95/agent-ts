@@ -1,104 +1,69 @@
-## Roadmap towards a usable agent
+# Roadmap – local-autonomous-coding-assistant
 
-## 1. Solidify the current core
+Prioritized backlog. Done items removed; focus on what remains and lessons from code review.
 
-- [x] Clarify the API contract of `/tasks` (JSON schema, fields, limits)
-- [x] Document the response shape (`memory`, `answer`, `steps`) clearly in the README
-- [x] Improve config error handling (QDRANT_URL, missing Ollama models) with explicit messages
+---
 
-## 2. Improve core tools
+## P0 – Critical (do first)
 
-- [x] Extend file tools:
-  - [x] Add `appendFile`
-  - [x] Add a patch/diff-style write tool instead of full overwrite
-  - [x] Protect paths like `.git`, `node_modules`, `dist`, `*.log`, etc.
-- [x] Extend `runCommand`:
-  - [x] Whitelist allowed commands (git, npm, pnpm, tests…)
-  - [x] Configurable timeout + truncated output
-  - [x] Structured output (stdout, stderr, exitCode, duration)
+- [x] **E2E tests**  
+  Agent loop tests with mocked planner/RAG/responder/executeTool: assert tool sequence and DONE. See `tests/agent.agentLoop.test.ts`.
 
-## 3. Git & Node tooling
+- [x] **Build script**  
+  Replaced with `scripts/copy-templates.mjs` (ESM-safe). Note: `tsc` may still fail on pre-existing TS options (allowImportingTsExtensions) or types (Dirent); fix tsconfig/workspaceManager separately if needed.
 
-- [x] Add Git tools:
-  - [x] `gitStatus`
-  - [x] `gitDiff`
-  - [x] `gitLog`
-  - [x] (optional, opt-in) `gitCommit(message)`
-- [x] Add Node/JS tools:
-  - [x] `runTests` (wrap `npm test`)
-  - [x] `runLint`
-  - [x] `runBuild`
-- [x] Centralize these tools in a `devTools` module
+- [x] **CLI streaming**  
+  `agent run` uses `POST /tasks/stream` by default; use `--no-stream` for blocking. Steps and planner deltas (with `--verbose`) print as they arrive.
 
-## 4. Smarter planner
+---
 
-- [x] Enrich planner prompt with a notion of mini-plan (likely sequence of actions)
-- [x] Introduce a `goalType` field in `/tasks` (e.g. `runTestsAndFix`, `addEndpoint`)
-- [x] Teach planner when to consider the task DONE (tests green, no errors, no more useful actions)
+## P1 – Important (reliability & UX)
 
-## 5. More targeted RAG for code
+- [x] **Task cancellation**  
+  `POST /tasks/stream` returns `taskId` in first SSE event `{ type: "started", taskId }`. `DELETE /tasks/:id` aborts that run. Agent loop accepts `signal?: AbortSignal` and returns `cancelled: true` when aborted.
 
-- [x] During indexing:
-  - [x] Extract symbols (functions, classes, endpoints) and store in metadata (`symbol`, `kind`)
-  - [x] Filter files better (ignore binaries, build outputs, large JSON)
-- [x] Add search tools:
-  - [x] `searchSymbols(query)` to retrieve relevant symbols directly
-  - [x] Make planner choose between `searchSymbols` and `searchCode` depending on the task
+- [x] **Observability / metrics**  
+  `GET /metrics` returns `{ lastRun: { steps, durationMs, finished, cancelled?, timestamp }, totalRuns }`. Recorded after each `/tasks` and `/tasks/stream` run.
 
-## 6. UX (CLI & logs)
+- [x] **Index state**  
+  `indexWorkspaceIncremental()` now runs a full index when no state file exists (first run or after clone), then returns that result.
 
-- [x] Create a small CLI (`agent`) that wraps the HTTP API:
-  - [x] `agent index`
-  - [x] `agent run "Refactor X into Y"`
-- [x] Improve logs:
-  - [x] Structured trace (timestamp, tool, key params, errors)
-  - [x] `verbose` option in `/tasks` to control detail level
+- [x] **Timeout on stream**  
+  On timeout, stream sends `{ type: "timeout", error: "..." }` before closing. On cancel, sends `{ type: "cancelled" }`.
 
-## 7. Safety & guardrails
+---
 
-- [x] Clearly configure the workspace root and allowed/forbidden directories
-- [x] Add a `dryRun` mode:
-  - [x] Simulate `writeFile` / `runCommand` and return plan/diff without side effects
-- [x] Save backups of files before modification
+## P2 – Quality & maintainability
 
-## 8. Pre-packaged scenarios
+- [x] **Single source of truth for tools**  
+  `src/tools/registry.ts`: TOOL_DEFS (name, params, readOnly, dryRunOnly), READ_ONLY_TOOLS, DRY_RUN_TOOLS, EXECUTABLE_TOOL_NAMES, getToolsForPlanner(). Planner and actionResolver import from registry.
 
-- [ ] Implement ready-to-use “modes”:
-  - [ ] `improveTypes`: analyze a TS file and propose stricter types
-  - [ ] `addEndpoint`: create an Express endpoint + handler + test
-  - [ ] `fixTest`: run `npm test`, read errors, locate file, propose a patch
-- [ ] Add example `/tasks` requests for each scenario in the README
+- [x] **Goal type**  
+  Planner user prompt includes goal-specific hints (runTestsAndFix → runTests early, then readFile/editLines; addEndpoint → find routes then add; improveTypes → locate file then searchReplace/editLines).
 
-## 9. Planner robustness
+- [ ] **Planner: structured/grammar output**  
+  When Ollama (or another provider) supports constrained output, use it for `{ tool, params }` to avoid JSON parse retries and regex fallbacks.
 
-- [x] Harden planner output parsing:
-  - [x] Retry with “reply with JSON only” when JSON parse fails
-  - [x] Fallback regex to extract `{"tool":..., "params":...}` from raw response
-- [ ] Use structured/grammar output from Ollama for planner if supported
-- [x] Add few-shot examples in planner prompt for when to say DONE vs continue (e.g. don’t DONE if tests weren’t run when user asked, or if a new file was requested but not written)
+---
 
-## 10. Context & memory
+## P3 – Scenarios & polish
 
-- [x] Improve `relevantContext`: keep last N search results or summarize older ones instead of only the latest
-- [x] Summarize older steps in `recentObservations` (e.g. first k-1 steps as one short paragraph, keep last 2–3 in full) to avoid context overflow
+- [ ] **Pre-packaged scenarios**  
+  Implement and document: `improveTypes`, `addEndpoint`, `fixTest` (run tests → read errors → patch). Add example `POST /tasks` bodies in README.
 
-## 11. RAG improvements
+- [ ] **Stream final answer**  
+  Optional streaming of the summarizer output for long runs so the user sees the answer as it’s generated.
 
-- [x] Incremental (or partial) re-index: endpoint or option to index only changed files (e.g. by mtime or hash)
-- [x] Hybrid search: combine semantic (Qdrant) with keyword match on chunk content for better recall on exact names
+- [ ] **LLM provider abstraction**  
+  Abstract “LLM for planning / summarization” so a second provider or fallback (e.g. “reply DONE”) can be plugged in without touching the loop. Reduces single point of failure.
 
-## 12. UX & performance
+- [ ] **Public UI**  
+  Refactor `public/app.js`: modularize or small framework so history, diff view, and new options are easier to add and test.
 
-- [ ] CLI progress: stream step-by-step output during `agent run` (e.g. “Step 1: searchCode …”, “Step 2: readFile …”) instead of waiting for the end
-- [ ] Optional streaming of final answer for long runs
-- [x] Global timeout per task (e.g. 5 min) to avoid runaway runs
+---
 
-## 13. Observability & debug
+## Notes (no task, just context)
 
-- [x] In verbose mode: log truncated tool output in trace (not only tool + params) for replay/debug
-- [ ] Optional metrics: duration per step, total run time, Ollama call count; expose via `GET /metrics` or structured logs
-
-## 14. Code quality & maintainability
-
-- [ ] E2E tests for agent loop with mocked Ollama + Qdrant (simple task → expected tools or DONE)
-- [x] Move planner and responder prompts to dedicated files or module (e.g. `src/prompts/`) for easier tuning
+- **Memory**: `AgentMemory` is per-run only (run transcript). No persistence across sessions. Fine for “local assistant”; naming could be clarified (e.g. “RunTranscript”) if it ever gets confused with long-term memory.
+- **Context**: Large files are only seen via RAG snippets and tool output caps. For “refactor this huge file,” either document the limitation or consider chunked reads / summarization later.
+- **One tool per step**: Current design is one `{ tool, params }` per turn. Keeps protocol simple but increases steps for multi-step tasks; batching or “mini-plan” is a possible future improvement.
