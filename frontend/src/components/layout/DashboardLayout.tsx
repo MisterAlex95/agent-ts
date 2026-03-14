@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { MetricsSnapshot } from "../../types";
 
 const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "project" | "files" | "settings"; label: string }[] = [
@@ -24,11 +24,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   health,
   metrics,
 }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const totalRuns = metrics?.totalRuns ?? 0;
   const totalErrors = metrics?.totalErrors ?? 0;
 
+  const handleNav = (page: "dashboard" | "runs" | "project" | "files" | "settings") => {
+    onNavigate(page);
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <div className="app-root">
+    <div className={`app-root ${mobileMenuOpen ? "mobile-menu-open" : ""}`}>
+      <div
+        className="sidebar-backdrop"
+        aria-hidden="true"
+        onClick={() => setMobileMenuOpen(false)}
+      />
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="app-title">Agent</div>
@@ -40,7 +51,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               key={item.id}
               type="button"
               className={`nav-item ${item.id === activePage ? "nav-item-active" : ""}`}
-              onClick={() => onNavigate(item.id)}
+              onClick={() => handleNav(item.id)}
             >
               <span className="nav-label">{item.label}</span>
             </button>
@@ -49,7 +60,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       </aside>
       <div className="main-column">
         <header className="topbar">
-          <div>
+          <button
+            type="button"
+            className="topbar-menu-btn"
+            aria-label="Open menu"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span className="topbar-menu-icon" aria-hidden />
+          </button>
+          <div className="topbar-heading">
             <div className="topbar-title">Agent dashboard</div>
             <div className="topbar-subtitle">Run, observe and iterate on coding tasks</div>
           </div>
