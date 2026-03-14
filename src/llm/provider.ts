@@ -1,5 +1,6 @@
 /**
  * LLM provider abstraction: selects implementation from env (default Ollama).
+ * Set AGENT_LLM_PROVIDER=pi to use @mariozechner/pi-ai (multi-provider, native tool calling).
  */
 import type { LLMProvider } from "./types.js";
 import {
@@ -7,6 +8,7 @@ import {
   ollamaChatStream,
   type OllamaChatMessage,
 } from "./ollamaClient.js";
+import { piAiProvider } from "./piAiProvider.js";
 
 import type { LLMMessage } from "./types.js";
 
@@ -43,6 +45,6 @@ const ollamaProvider: LLMProvider = {
 const PROVIDER_ENV = process.env.AGENT_LLM_PROVIDER?.toLowerCase() ?? "ollama";
 
 export function getLLMProvider(): LLMProvider {
-  if (PROVIDER_ENV === "ollama") return ollamaProvider;
+  if (PROVIDER_ENV === "pi") return piAiProvider;
   return ollamaProvider;
 }

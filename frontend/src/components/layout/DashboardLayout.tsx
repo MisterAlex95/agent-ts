@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import type { MetricsSnapshot } from "../../types";
 
-const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "project" | "files" | "settings"; label: string }[] = [
+const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "kanban" | "project" | "files" | "settings"; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "runs", label: "Runs" },
+  { id: "kanban", label: "Kanban" },
   { id: "project", label: "Project" },
   { id: "files", label: "Files" },
   { id: "settings", label: "Settings" },
@@ -11,8 +12,8 @@ const SIDEBAR_ITEMS: { id: "dashboard" | "runs" | "project" | "files" | "setting
 
 type DashboardLayoutProps = {
   children: React.ReactNode;
-  activePage: "dashboard" | "runs" | "project" | "files" | "settings";
-  onNavigate: (page: "dashboard" | "runs" | "project" | "files" | "settings") => void;
+  activePage: "dashboard" | "runs" | "kanban" | "project" | "files" | "settings";
+  onNavigate: (page: "dashboard" | "runs" | "kanban" | "project" | "files" | "settings") => void;
   health: "online" | "offline";
   metrics: MetricsSnapshot | null;
 };
@@ -28,7 +29,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const totalRuns = metrics?.totalRuns ?? 0;
   const totalErrors = metrics?.totalErrors ?? 0;
 
-  const handleNav = (page: "dashboard" | "runs" | "project" | "files" | "settings") => {
+  const handleNav = (page: "dashboard" | "runs" | "kanban" | "project" | "files" | "settings") => {
     onNavigate(page);
     setMobileMenuOpen(false);
   };

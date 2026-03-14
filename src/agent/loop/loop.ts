@@ -134,9 +134,13 @@ export async function runAgentLoop(
 
   const conversationHistory = formatConversationHistory(options?.history);
 
-  const focusPaths = options?.focusPaths?.length
-    ? options.focusPaths.map((p) => p.replace(/\\/g, "/").replace(/^\.\//, ""))
-    : undefined;
+  const workspaceSubpath = options?.workspaceSubpath?.trim();
+  const focusPaths =
+    options?.focusPaths?.length
+      ? options.focusPaths.map((p) => p.replace(/\\/g, "/").replace(/^\.\//, ""))
+      : workspaceSubpath
+        ? [workspaceSubpath.replace(/\/$/, "") + "/"]
+        : undefined;
 
   const cfg = AGENT_CONFIG;
   const [goalType, initialRagChunk, projectRules] = await Promise.all([
@@ -220,6 +224,7 @@ export async function runAgentLoop(
         projectRules: projectRules || undefined,
         conversationHistory,
         focusPaths,
+        workspaceSubpath: workspaceSubpath || undefined,
         alreadyReadPaths:
           alreadyReadPaths.length > 0 ? alreadyReadPaths : undefined,
         alreadyListedPaths:
@@ -264,7 +269,11 @@ export async function runAgentLoop(
 
       let result: unknown;
       try {
-        result = await executeTool(tool as ToolName, params, { dryRun, mode });
+        result = await executeTool(tool as ToolName, params, {
+          dryRun,
+          mode,
+          workspaceSubpath: options?.workspaceSubpath,
+        });
         if (
           dryRun &&
           typeof result === "object" &&

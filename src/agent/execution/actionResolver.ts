@@ -33,12 +33,15 @@ import type { ToolName } from "../memory/index.js";
 import type { RunMode } from "../../api/schema.js";
 import { READ_ONLY_TOOLS } from "../planning/planner.js";
 import { DRY_RUN_TOOLS } from "../../tools/registry/index.js";
+import { applyWorkspaceSubpathToParams } from "./workspaceSubpath.js";
 
 export type ToolExecutionResult = unknown;
 
 export interface ExecuteToolOptions {
   dryRun?: boolean;
   mode?: RunMode;
+  /** When set, all path params are restricted to this subpath under workspace root. */
+  workspaceSubpath?: string;
 }
 
 function isDryRunOnly(tool: ToolName): boolean {
@@ -62,29 +65,43 @@ export async function executeTool(
     };
   }
 
+  let resolvedParams = params as Record<string, unknown>;
+  if (options?.workspaceSubpath?.trim()) {
+    try {
+      resolvedParams = applyWorkspaceSubpathToParams(
+        (params as Record<string, unknown>) ?? {},
+        tool,
+        options.workspaceSubpath.trim(),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Project path restriction: ${message}`);
+    }
+  }
+
   switch (tool) {
     case "searchCode": {
-      const { query } = params as { query: string };
+      const { query } = resolvedParams as { query: string };
       return searchCodeTool(query);
     }
     case "searchSymbols": {
-      const { query } = params as { query: string };
+      const { query } = resolvedParams as { query: string };
       return searchSymbolsTool(query);
     }
     case "readFile": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return readFileTool(path);
     }
     case "readFiles": {
-      const { paths } = params as { paths: string[] };
+      const { paths } = resolvedParams as { paths: string[] };
       return readFilesTool(Array.isArray(paths) ? paths : []);
     }
     case "writeFile": {
-      const { path, content } = params as { path: string; content: string };
+      const { path, content } = resolvedParams as { path: string; content: string };
       return writeFileTool(path, content);
     }
     case "editLines": {
-      const { path, edits } = params as { path: string; edits: Array<{ line: number; content: string; mode?: string }> };
+      const { path, edits } = resolvedParams as { path: string; edits: Array<{ line: number; content: string; mode?: string }> };
       const normalized = Array.isArray(edits)
         ? edits.map((e) => ({
             line: Number(e?.line) || 1,
@@ -95,51 +112,51 @@ export async function executeTool(
       return editLinesTool(path, normalized);
     }
     case "mkdir": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return mkdirTool(path ?? "");
     }
     case "touch": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return touchTool(path ?? "");
     }
     case "searchReplace": {
-      const { path, oldText, newText } = params as { path: string; oldText: string; newText: string };
+      const { path, oldText, newText } = resolvedParams as { path: string; oldText: string; newText: string };
       return searchReplaceTool(path ?? "", oldText ?? "", newText ?? "");
     }
     case "appendFile": {
-      const { path, content } = params as { path: string; content: string };
+      const { path, content } = resolvedParams as { path: string; content: string };
       return appendFileTool(path ?? "", content ?? "");
     }
     case "deleteFile": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return deleteFileTool(path);
     }
     case "deleteFiles": {
-      const { paths } = params as { paths: string[] };
+      const { paths } = resolvedParams as { paths: string[] };
       return deleteFilesTool(Array.isArray(paths) ? paths : []);
     }
     case "deleteFolder": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return deleteFolderTool(path);
     }
     case "deletePath": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return deletePathTool(path);
     }
     case "moveFile": {
-      const { from, to } = params as { from: string; to: string };
+      const { from, to } = resolvedParams as { from: string; to: string };
       return moveFileTool(from, to);
     }
     case "copyFile": {
-      const { from, to } = params as { from: string; to: string };
+      const { from, to } = resolvedParams as { from: string; to: string };
       return copyFileTool(from, to);
     }
     case "listFiles": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return listFilesTool(path);
     }
     case "grep": {
-      const { path, pattern, caseInsensitive, maxMatches } = params as {
+      const { path, pattern, caseInsensitive, maxMatches } = resolvedParams as {
         path?: string;
         pattern: string;
         caseInsensitive?: boolean;
@@ -151,41 +168,41 @@ export async function executeTool(
       });
     }
     case "findFiles": {
-      const { path, namePattern } = params as { path?: string; namePattern: string };
+      const { path, namePattern } = resolvedParams as { path?: string; namePattern: string };
       return findFilesTool(path ?? ".", namePattern ?? "*");
     }
     case "fileExists": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return fileExistsTool(path);
     }
     case "wc": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return wcTool(path);
     }
     case "referencedBy": {
-      const { path } = params as { path: string };
+      const { path } = resolvedParams as { path: string };
       return referencedByTool(path);
     }
     case "runCommand": {
-      const { command, cwd } = params as { command: string; cwd?: string };
+      const { command, cwd } = resolvedParams as { command: string; cwd?: string };
       return runCommandTool(command, cwd ? { cwd } : undefined);
     }
     case "gitStatus":
       return gitStatusTool();
     case "gitDiff": {
-      const { path, staged } = params as { path?: string; staged?: boolean };
+      const { path, staged } = resolvedParams as { path?: string; staged?: boolean };
       return gitDiffTool({ path, staged });
     }
     case "gitLog": {
-      const { maxCount, path } = params as { maxCount?: number; path?: string };
+      const { maxCount, path } = resolvedParams as { maxCount?: number; path?: string };
       return gitLogTool({ maxCount, path });
     }
     case "gitCommit": {
-      const { message } = params as { message: string };
+      const { message } = resolvedParams as { message: string };
       return gitCommitTool(message);
     }
     case "runNpm": {
-      const { args, cwd } = params as { args: string; cwd?: string };
+      const { args, cwd } = resolvedParams as { args: string; cwd?: string };
       return runNpmTool(args ?? "", cwd ? { cwd } : undefined);
     }
     default: {

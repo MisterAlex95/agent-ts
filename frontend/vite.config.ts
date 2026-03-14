@@ -11,6 +11,7 @@ export default defineConfig({
       "/runs": "http://localhost:3000",
       "/files": "http://localhost:3000",
       "/tasks": "http://localhost:3000",
+      "/kanban": "http://localhost:3000",
       "/tasks/stream": {
         target: "http://localhost:3000",
         changeOrigin: true,

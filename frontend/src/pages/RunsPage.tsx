@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import type { AgentRun, GoalType, RunMode } from "../types";
+import type { AgentRun, GoalType, RunMode, ServerRunRecord } from "../types";
 import {
   getStepBlockType,
   ThinkingBlock,
@@ -12,6 +12,8 @@ import {
 type RunsPageProps = {
   runs: AgentRun[];
   activeRun: AgentRun | null;
+  serverRunDetail: ServerRunRecord | null;
+  selectedRunId: string | null;
   onSelectRun: (id: string) => void;
   onCancelRun?: (run: AgentRun) => void;
   onStartRun?: (params: {
@@ -32,6 +34,8 @@ type RunsPageProps = {
 export const RunsPage: React.FC<RunsPageProps> = ({
   runs,
   activeRun,
+  serverRunDetail,
+  selectedRunId,
   onSelectRun,
   onCancelRun,
   onStartRun,
@@ -283,8 +287,42 @@ export const RunsPage: React.FC<RunsPageProps> = ({
               </div>
             )}
           </div>
+        ) : serverRunDetail && selectedRunId === serverRunDetail.id ? (
+          <div className="run-detail">
+            <div className="run-detail-header">
+              <div className="run-detail-status">
+                <span className={`run-status-pill run-status-${serverRunDetail.finished ? (serverRunDetail.cancelled ? "cancelled" : "done") : "running"}`}>
+                  {serverRunDetail.finished ? (serverRunDetail.cancelled ? "cancelled" : "done") : "running"}
+                </span>
+                <span className="run-detail-meta">
+                  {serverRunDetail.mode ?? "Agent"} • {serverRunDetail.goalType ?? "auto"} • {serverRunDetail.steps} steps • {serverRunDetail.durationMs != null ? `${Math.round(serverRunDetail.durationMs / 1000)}s` : ""}
+                </span>
+              </div>
+              <div className="run-detail-task" title={serverRunDetail.task ?? serverRunDetail.taskPreview ?? ""}>
+                {serverRunDetail.task ?? serverRunDetail.taskPreview ?? "—"}
+              </div>
+              <p className="run-detail-scheduler-note">Run from Kanban scheduler. Step-by-step trace is not stored.</p>
+            </div>
+            <div className="run-detail-scroll" aria-label="Steps and answer">
+              {serverRunDetail.error && (
+                <div className="run-answer">
+                  <h3 className="run-answer-title">Error</h3>
+                  <pre className="run-answer-content timeline-error">{serverRunDetail.error}</pre>
+                </div>
+              )}
+              {serverRunDetail.answer != null && serverRunDetail.answer !== "" && (
+                <div className="run-answer" aria-label="Final answer">
+                  <h3 className="run-answer-title">Answer</h3>
+                  <pre className="run-answer-content">{serverRunDetail.answer}</pre>
+                </div>
+              )}
+              {!serverRunDetail.error && (!serverRunDetail.answer || serverRunDetail.answer === "") && (
+                <div className="runs-empty">No answer recorded for this run.</div>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="runs-empty">Select a run in the list.</div>
+          <div className="runs-empty">Select a run in the list or open one from a Kanban card (View run).</div>
         )}
       </section>
     </div>

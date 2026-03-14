@@ -27,6 +27,8 @@ export interface PlanningContext {
   projectRules?: string;
   /** Paths to prioritize (user focus, e.g. @file) */
   focusPaths?: string[];
+  /** When set, agent must only work under this path */
+  workspaceSubpath?: string;
   conversationHistory?: string;
   /** Paths already read in this run (do not call readFile again for these) */
   alreadyReadPaths?: string;

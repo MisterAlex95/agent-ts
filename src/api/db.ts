@@ -54,6 +54,59 @@ function initSchema(database: Database.Database): void {
   } catch {
     // column already exists
   }
+
+  // Kanban: default board, columns, cards
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS boards (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      project_path TEXT
+    );
+    CREATE TABLE IF NOT EXISTS kanban_columns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      board_id INTEGER NOT NULL,
+      slug TEXT NOT NULL,
+      label TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      UNIQUE(board_id, slug)
+    );
+    CREATE TABLE IF NOT EXISTS kanban_cards (
+      id TEXT PRIMARY KEY,
+      column_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      position INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      run_id TEXT,
+      FOREIGN KEY (column_id) REFERENCES kanban_columns(id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_kanban_cards_column ON kanban_cards(column_id);
+  `);
+  try {
+    database.exec("ALTER TABLE boards ADD COLUMN project_path TEXT");
+  } catch {
+    // column already exists
+  }
+  const boardExists = database.prepare("SELECT 1 FROM boards WHERE id = 1").get();
+  if (!boardExists) {
+    const now = new Date().toISOString();
+    database.prepare("INSERT INTO boards (id, name, created_at, project_path) VALUES (1, 'Default', ?, NULL)").run(now);
+    const defaultColumns = [
+      [1, "todo", "To Do", 0],
+      [1, "in_progress", "In Progress", 1],
+      [1, "to_test", "To Test", 2],
+      [1, "to_review", "To Review", 3],
+      [1, "done", "Done", 4],
+    ];
+    const insertCol = database.prepare(
+      "INSERT INTO kanban_columns (board_id, slug, label, position) VALUES (?, ?, ?, ?)",
+    );
+    for (const row of defaultColumns) {
+      insertCol.run(row[0], row[1], row[2], row[3]);
+    }
+  }
 }
 
 export interface RunRow {

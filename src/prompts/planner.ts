@@ -14,6 +14,8 @@ export interface PlanningContext {
   conversationHistory?: string;
   /** Paths to prioritize (user focus) */
   focusPaths?: string[];
+  /** When set, agent must only work under this path; paths are scoped to it */
+  workspaceSubpath?: string;
   alreadyReadPaths?: string;
   alreadyListedPaths?: string;
   /** Steps left in this run (for countdown / prefer progress) */

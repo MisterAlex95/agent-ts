@@ -169,3 +169,182 @@ export function createTaskStream(body: TaskRequestBody, callbacks: StreamCallbac
   return () => controller.abort();
 }
 
+// Kanban
+export interface KanbanBoardSummary {
+  id: number;
+  name: string;
+  created_at: string;
+  project_path: string | null;
+}
+
+export interface KanbanCard {
+  id: string;
+  column_id: number;
+  title: string;
+  description: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  run_id: string | null;
+}
+
+export interface KanbanColumnWithCards {
+  id: number;
+  board_id: number;
+  slug: string;
+  label: string;
+  position: number;
+  cards: KanbanCard[];
+}
+
+export interface KanbanBoard {
+  id: number;
+  name: string;
+  created_at: string;
+  project_path: string | null;
+  columns: KanbanColumnWithCards[];
+}
+
+export async function getKanbanBoards(): Promise<KanbanBoardSummary[]> {
+  try {
+    const res = await fetch("/kanban/boards");
+    if (!res.ok) return [];
+    const data = (await res.json()) as { boards?: KanbanBoardSummary[] };
+    return Array.isArray(data.boards) ? data.boards : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getKanbanBoard(boardId?: number): Promise<KanbanBoard | null> {
+  try {
+    const url = boardId != null ? `/kanban/board/${boardId}` : "/kanban/board";
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return (await res.json()) as KanbanBoard;
+  } catch {
+    return null;
+  }
+}
+
+export async function createKanbanBoard(name: string, projectPath?: string | null): Promise<KanbanBoard> {
+  const res = await fetch("/kanban/boards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, project_path: projectPath ?? undefined }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Create board failed: ${res.status}`);
+  }
+  return res.json() as Promise<KanbanBoard>;
+}
+
+export async function updateKanbanBoard(
+  id: number,
+  patch: { name?: string; project_path?: string | null },
+): Promise<KanbanBoard> {
+  const res = await fetch(`/kanban/boards/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Update board failed: ${res.status}`);
+  }
+  return res.json() as Promise<KanbanBoard>;
+}
+
+export interface AiCardsResponse {
+  created: KanbanCard[];
+  error?: string;
+}
+
+export async function generateKanbanCardsWithAi(
+  boardId: number,
+  prompt: string,
+): Promise<AiCardsResponse> {
+  const res = await fetch(`/kanban/boards/${boardId}/ai-cards`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: prompt.trim() || undefined }),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Generate cards failed: ${res.status}`);
+  }
+  return res.json() as Promise<AiCardsResponse>;
+}
+
+export async function createKanbanCard(params: {
+  title: string;
+  description?: string;
+  column_id?: number;
+  column_slug?: string;
+  board_id?: number;
+}): Promise<KanbanCard> {
+  const res = await fetch("/kanban/cards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Create card failed: ${res.status}`);
+  }
+  return res.json() as Promise<KanbanCard>;
+}
+
+export async function updateKanbanCard(
+  id: string,
+  patch: { title?: string; description?: string; column_id?: number },
+): Promise<KanbanCard> {
+  const res = await fetch(`/kanban/cards/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Update card failed: ${res.status}`);
+  }
+  return res.json() as Promise<KanbanCard>;
+}
+
+export async function deleteKanbanCard(id: string): Promise<void> {
+  const res = await fetch(`/kanban/cards/${id}`, { method: "DELETE" });
+  if (!res.ok && res.status !== 204) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Delete card failed: ${res.status}`);
+  }
+}
+
+export interface KanbanSchedulerRunOnceResult {
+  ran: boolean;
+  cardId?: string;
+  runId?: string;
+  error?: string;
+}
+
+export interface KanbanSchedulerStatus {
+  busy: boolean;
+  cardId: string | null;
+  runId: string | null;
+}
+
+export async function getKanbanSchedulerStatus(): Promise<KanbanSchedulerStatus> {
+  const res = await fetch("/kanban/scheduler/status");
+  if (!res.ok) return { busy: false, cardId: null, runId: null };
+  return res.json() as Promise<KanbanSchedulerStatus>;
+}
+
+export async function triggerSchedulerRunOnce(): Promise<KanbanSchedulerRunOnceResult> {
+  const res = await fetch("/kanban/scheduler/run-once", { method: "POST" });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `Scheduler run-once failed: ${res.status}`);
+  }
+  return res.json() as Promise<KanbanSchedulerRunOnceResult>;
+}
+

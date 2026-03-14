@@ -1,14 +1,28 @@
 import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { runAgentLoop, TaskTimeoutError } from "../agent/index.js";
+import { runAgentLoopWithPiAgent } from "../agent/loop/piAgentRunner.js";
 import { indexWorkspaceRepository, indexWorkspaceIncremental } from "../rag/indexer.js";
 import { registerTask, abortTask, unregisterTask } from "./taskStore.js";
 import { recordRun, getMetrics, getRecentRuns, runRowToRecord } from "./metrics.js";
 import { recordIndexRun, getIndexStatus, getRunById } from "./db.js";
+import {
+  getBoard,
+  listBoards,
+  createBoard,
+  updateBoard,
+  getColumnBySlug,
+  getColumnById,
+  createCard,
+  updateCard,
+  deleteCard,
+} from "./kanbanDb.js";
 import type { TaskRequestBody, TaskResponseBody, GoalType, RunMode } from "./schema.js";
+import type { StepEvent } from "../agent/loop/types.js";
 import { logger } from "../logger.js";
 import { getWorkspaceRoot, listWorkspaceDirectEntries, readWorkspaceFile } from "../runtime/workspaceManager.js";
 import { isProtectedPath } from "../tools/file/helpers.js";
+import { generateAndCreateAiCards } from "../kanban/aiCards.js";
 
 const MAX_STEPS_MIN = 1;
 const MAX_STEPS_MAX = 64;
@@ -86,13 +100,14 @@ export function registerRoutes(app: Express): void {
     writeSSE(res, { type: "started", taskId });
 
     const streamStart = Date.now();
+    const usePiAgent = process.env.AGENT_USE_PI_AGENT === "1";
     try {
       const focusPaths =
         Array.isArray(body.focusPaths) &&
         body.focusPaths.every((p) => typeof p === "string")
           ? (body.focusPaths as string[])
           : undefined;
-      const result = await runAgentLoop(body.task, {
+      const loopOptions = {
         maxSteps,
         goalType,
         mode,
@@ -102,10 +117,13 @@ export function registerRoutes(app: Express): void {
         history: Array.isArray(body.history) ? body.history : undefined,
         focusPaths,
         signal: controller.signal,
-        onStep: (ev) => writeSSE(res, { type: "step", ...ev }),
-        onPlannerChunk: (delta) => writeSSE(res, { type: "planner_delta", delta }),
-        onAnswerChunk: (delta) => writeSSE(res, { type: "answer_delta", delta }),
-      });
+        onStep: (ev: StepEvent) => writeSSE(res, { type: "step", ...ev }),
+        onPlannerChunk: (delta: string) => writeSSE(res, { type: "planner_delta", delta }),
+        onAnswerChunk: (delta: string) => writeSSE(res, { type: "answer_delta", delta }),
+      };
+      const result = usePiAgent
+        ? await runAgentLoopWithPiAgent(body.task, loopOptions)
+        : await runAgentLoop(body.task, loopOptions);
       if (result.cancelled) {
         writeSSE(res, { type: "cancelled", ...result });
       } else {
@@ -342,6 +360,179 @@ export function registerRoutes(app: Express): void {
       return;
     }
     res.json(runRowToRecord(row));
+  });
+
+  // Kanban
+  const DEFAULT_BOARD_ID = 1;
+
+  app.get("/kanban/boards", (_req: Request, res: Response) => {
+    res.json({ boards: listBoards() });
+  });
+
+  app.post("/kanban/boards", (req: Request, res: Response) => {
+    const body = req.body as { name?: string; project_path?: string };
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ error: "Missing or invalid 'name'" });
+      return;
+    }
+    const projectPath = typeof body.project_path === "string" ? body.project_path.trim() || null : null;
+    const board = createBoard(name, projectPath);
+    res.status(201).json(board);
+  });
+
+  app.patch("/kanban/boards/:id", (req: Request, res: Response) => {
+    const idRaw = req.params.id;
+    const id = typeof idRaw === "string" ? Number.parseInt(idRaw, 10) : NaN;
+    if (Number.isNaN(id) || id < 1) {
+      res.status(400).json({ error: "Invalid board id" });
+      return;
+    }
+    const body = req.body as { name?: string; project_path?: string };
+    const patch: { name?: string; project_path?: string | null } = {};
+    if (typeof body.name === "string") patch.name = body.name.trim();
+    if (body.project_path !== undefined) patch.project_path = typeof body.project_path === "string" ? body.project_path.trim() || null : null;
+    const board = updateBoard(id, patch);
+    if (!board) {
+      res.status(404).json({ error: "Board not found", id });
+      return;
+    }
+    res.json(board);
+  });
+
+  app.post("/kanban/boards/:id/ai-cards", async (req: Request, res: Response) => {
+    const idRaw = req.params.id;
+    const id = typeof idRaw === "string" ? Number.parseInt(idRaw, 10) : NaN;
+    if (Number.isNaN(id) || id < 1) {
+      res.status(400).json({ error: "Invalid board id" });
+      return;
+    }
+    const body = req.body as { prompt?: string };
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    try {
+      const result = await generateAndCreateAiCards(id, prompt);
+      if (result.error && result.created.length === 0) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+      res.status(201).json({ created: result.created, error: result.error ?? undefined });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("AI cards failed", { boardId: id, error: message });
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/kanban/board", (_req: Request, res: Response) => {
+    const board = getBoard(DEFAULT_BOARD_ID);
+    if (!board) {
+      res.status(404).json({ error: "Board not found" });
+      return;
+    }
+    res.json(board);
+  });
+
+  app.get("/kanban/board/:id", (req: Request, res: Response) => {
+    const idRaw = req.params.id;
+    const id = typeof idRaw === "string" ? Number.parseInt(idRaw, 10) : NaN;
+    if (Number.isNaN(id) || id < 1) {
+      res.status(400).json({ error: "Invalid board id" });
+      return;
+    }
+    const board = getBoard(id);
+    if (!board) {
+      res.status(404).json({ error: "Board not found", id });
+      return;
+    }
+    res.json(board);
+  });
+
+  app.post("/kanban/cards", (req: Request, res: Response) => {
+    const body = req.body as { title?: string; description?: string; column_id?: number; column_slug?: string; board_id?: number };
+    const title = typeof body.title === "string" ? body.title.trim() : "";
+    if (!title) {
+      res.status(400).json({ error: "Missing or invalid 'title'" });
+      return;
+    }
+    const boardId = typeof body.board_id === "number" ? body.board_id : DEFAULT_BOARD_ID;
+    let columnId: number | undefined = typeof body.column_id === "number" ? body.column_id : undefined;
+    if (columnId === undefined && typeof body.column_slug === "string") {
+      const col = getColumnBySlug(boardId, body.column_slug.trim());
+      if (!col) {
+        res.status(400).json({ error: "Unknown column_slug" });
+        return;
+      }
+      columnId = col.id;
+    }
+    if (columnId === undefined) {
+      const todoCol = getColumnBySlug(boardId, "todo");
+      columnId = todoCol?.id;
+    }
+    if (columnId === undefined) {
+      res.status(400).json({ error: "Missing column_id or column_slug, and no default 'todo' column" });
+      return;
+    }
+    const col = getColumnById(columnId);
+    if (!col) {
+      res.status(400).json({ error: "Column not found" });
+      return;
+    }
+    const card = createCard({
+      columnId,
+      title,
+      description: typeof body.description === "string" ? body.description : null,
+    });
+    res.status(201).json(card);
+  });
+
+  app.patch("/kanban/cards/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: "Missing card id" });
+      return;
+    }
+    const body = req.body as { title?: string; description?: string; column_id?: number };
+    const patch: { title?: string; description?: string | null; column_id?: number } = {};
+    if (typeof body.title === "string") patch.title = body.title.trim();
+    if (body.description !== undefined) patch.description = typeof body.description === "string" ? body.description : null;
+    if (typeof body.column_id === "number") patch.column_id = body.column_id;
+    const card = updateCard(id, patch);
+    if (!card) {
+      res.status(404).json({ error: "Card not found", id });
+      return;
+    }
+    res.json(card);
+  });
+
+  app.delete("/kanban/cards/:id", (req: Request, res: Response) => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: "Missing card id" });
+      return;
+    }
+    const ok = deleteCard(id);
+    if (!ok) {
+      res.status(404).json({ error: "Card not found", id });
+      return;
+    }
+    res.status(204).send();
+  });
+
+  app.get("/kanban/scheduler/status", async (_req: Request, res: Response) => {
+    const { getSchedulerStatus } = await import("../scheduler/kanbanAgentScheduler.js");
+    res.json(getSchedulerStatus());
+  });
+
+  app.post("/kanban/scheduler/run-once", async (_req: Request, res: Response) => {
+    const { runKanbanSchedulerOnce } = await import("../scheduler/kanbanAgentScheduler.js");
+    try {
+      const result = await runKanbanSchedulerOnce();
+      res.json(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("Kanban scheduler run-once failed", { error: message });
+      res.status(500).json({ error: message });
+    }
   });
 }
 

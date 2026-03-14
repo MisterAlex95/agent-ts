@@ -53,6 +53,11 @@ async function main(): Promise<void> {
   const port = Number(process.env.PORT ?? 3000);
   app.listen(port, "0.0.0.0", () => {
     logger.info("HTTP server listening", { port });
+    if (process.env.KANBAN_SCHEDULER_ENABLED === "1") {
+      import("../scheduler/kanbanAgentScheduler.js").then(({ startKanbanScheduler }) => {
+        startKanbanScheduler();
+      });
+    }
   });
 }
 

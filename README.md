@@ -6,10 +6,33 @@
 - Install and run **Ollama** with a coding model (e.g. `qwen2.5-coder` or `deepseek-coder-v2`)
 - A **Qdrant** instance (hosted or local); set `QDRANT_URL` in `.env`
 
+## Environment variables
+
+Copy `.env.example` to `.env` and adjust. Summary:
+
+| Variable | Description |
+|----------|-------------|
+| `QDRANT_URL` | Qdrant server base URL (e.g. `http://localhost:6333`). |
+| `QDRANT_COLLECTION` | Qdrant collection name for RAG chunks (default: `repo_chunks`). |
+| `EMBEDDING_PROVIDER` | Embedding backend: `ollama`, `openai`, or `claude`. |
+| `EMBEDDING_MODEL` | Model used for embeddings (e.g. `nomic-embed-text` for Ollama). |
+| `AGENT_BASE_URL` | LLM API base URL (Ollama: `http://localhost:11434`; with `pi` provider, `/v1` is appended for OpenAI-compatible). |
+| `AGENT_MODEL` | Chat model name (e.g. `qwen2.5-coder:32b`). |
+| `AGENT_LLM_HEADERS_TIMEOUT_MS` | Timeout in ms for LLM HTTP request (default: 120000). |
+| `AGENT_LLM_PROVIDER` | `ollama` = direct Ollama client; `pi` = [@mariozechner/pi-ai](https://github.com/badlogic/pi-mono) (multi-provider, native tool calling). |
+| `AGENT_USE_PI_AGENT` | `1` = use pi-agent-core for the agent loop; `0` = custom ReAct loop. Requires `AGENT_LLM_PROVIDER=pi` when `1`. |
+| `PORT` | HTTP server port (default: 3000). |
+| `WORKSPACE_ROOT` | Directory to index and run tools in (default: `./workspace`). |
+| `WORKSPACE_FORBIDDEN_DIRS` | Comma-separated dir names never indexed (e.g. `node_modules,.git`). |
+| `SQLITE_DB_PATH` | Path to SQLite DB for runs/index metadata (default: `./data/agent.db`). |
+| `AGENT_LOG_LEVEL` | Log level: `debug`, `info`, `warn`, `error` (default: `debug` in dev, `info` in production). |
+| `BACKUP_BEFORE_WRITE` | `1` or `true` to backup files before the agent overwrites them. |
+| `AGENT_API_URL` | Base URL of the API when using the CLI (default: `http://localhost:3000`). |
+
 ## Setup
 
 1. Clone this repository into a local directory.
-2. Copy `.env` and set `QDRANT_URL` (e.g. `https://qdrant.adserver.fr`) and other values as needed.
+2. Copy `.env.example` to `.env` and set `QDRANT_URL` (e.g. `https://qdrant.adserver.fr`) and other values as needed.
 3. Ensure Ollama is running and the configured model is pulled:
   ```bash
    ollama pull qwen2.5-coder

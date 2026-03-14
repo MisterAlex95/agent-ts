@@ -39,6 +39,8 @@ export interface AgentRunOptions {
   signal?: AbortSignal;
   /** Paths to prioritize for RAG and planner (e.g. focus on specific files/folders) */
   focusPaths?: string[];
+  /** When set, the agent must only work under this path (e.g. "projetA" => workspace/projetA/). All file paths are prefixed and validated. */
+  workspaceSubpath?: string;
 }
 
 export interface TraceEntry {

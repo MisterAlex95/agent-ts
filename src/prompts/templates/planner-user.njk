@@ -1,5 +1,7 @@
 {% if focusPaths %}User asked to focus on these paths: {{ focusPaths | join(", ") }}.
 {% endif %}
+{% if workspaceSubpath %}You must only read and modify files under the directory: {{ workspaceSubpath }}/. All path parameters (path, from, to, cwd) are relative to workspace root and will be scoped to this directory. Do not reference files outside {{ workspaceSubpath }}/.
+{% endif %}
 {% if conversationHistory %}Conversation so far:
 {{ conversationHistory }}
 

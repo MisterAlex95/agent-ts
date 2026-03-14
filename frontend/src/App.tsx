@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { RunsPage } from "./pages/RunsPage";
+import { KanbanPage } from "./pages/KanbanPage";
 import { ProjectPage } from "./pages/ProjectPage";
 import { FilesPage } from "./pages/FilesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import type { AgentRun, MetricsSnapshot, GoalType, RunMode, ServerRunRecord } from "./types";
-import { createTaskStream, getHealth, getMetrics, getRecentRuns, cancelTask } from "./api/client";
+import { createTaskStream, getHealth, getMetrics, getRecentRuns, getRunById, cancelTask } from "./api/client";
 
-type PageId = "dashboard" | "runs" | "project" | "files" | "settings";
+type PageId = "dashboard" | "runs" | "kanban" | "project" | "files" | "settings";
 
 export const App: React.FC = () => {
   const [activePage, setActivePage] = useState<PageId>("dashboard");
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [serverRuns, setServerRuns] = useState<ServerRunRecord[]>([]);
+  const [serverRunDetail, setServerRunDetail] = useState<ServerRunRecord | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -182,18 +184,47 @@ export const App: React.FC = () => {
 
   const activeRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null;
 
+  useEffect(() => {
+    if (activePage !== "runs" || !selectedRunId) {
+      setServerRunDetail(null);
+      return;
+    }
+    if (runs.some((r) => r.id === selectedRunId)) {
+      setServerRunDetail(null);
+      return;
+    }
+    let cancelled = false;
+    getRunById(selectedRunId).then((record) => {
+      if (!cancelled) setServerRunDetail(record ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePage, selectedRunId, runs]);
+
   let pageNode: React.ReactNode;
   if (activePage === "runs") {
     pageNode = (
       <RunsPage
         runs={runs}
         activeRun={activeRun}
+        serverRunDetail={serverRunDetail}
+        selectedRunId={selectedRunId}
         onSelectRun={setSelectedRunId}
         onCancelRun={(run) => {
           if (run.taskId) void cancelTask(run.taskId);
         }}
         onStartRun={startRun}
         isStarting={isStarting}
+      />
+    );
+  } else if (activePage === "kanban") {
+    pageNode = (
+      <KanbanPage
+        onOpenRun={(runId) => {
+          setActivePage("runs");
+          setSelectedRunId(runId);
+        }}
       />
     );
   } else if (activePage === "project") {
